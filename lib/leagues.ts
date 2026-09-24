@@ -15,6 +15,7 @@ export type League = {
   name: string;
   tagline: string;
   format: string; // "15-minute sprint"
+  runs: string;
   schedule: Schedule;
   pool: CompanyId[];
   poolNote: string;
@@ -42,6 +43,7 @@ export const LEAGUES: League[] = [
     name: "Stocklana Sprint",
     tagline: "Fifteen minutes. Three picks. Best average return takes the prize.",
     format: "15-minute sprint",
+    runs: "Runs 15 minutes",
     schedule: {
       kind: "recurring",
       periodMs: 30 * MIN,
@@ -60,6 +62,7 @@ export const LEAGUES: League[] = [
     name: "AI Unicorn Sprint",
     tagline: "An hour on the frontier of AI. Pick three, beat the room.",
     format: "1-hour sprint",
+    runs: "Runs 1 hour",
     schedule: {
       kind: "recurring",
       periodMs: 90 * MIN,
@@ -77,6 +80,7 @@ export const LEAGUES: League[] = [
     name: "Prediction Markets Cup",
     tagline: "A full day of event-market exposure. Kalshi, Polymarket and friends.",
     format: "1-day league",
+    runs: "Runs 1 day",
     schedule: { kind: "once", kickoff: new Date(2026, 8, 26, 18, 0).getTime(), durationMs: DAY, round: 1 },
     pool: ALL_COMPANY_IDS,
     poolNote: "Kalshi, Polymarket + others",
@@ -89,6 +93,7 @@ export const LEAGUES: League[] = [
     name: "Frontier Tech Weekly",
     tagline: "Rockets, robots, defense and brain tech. Seven days to prove it.",
     format: "7-day league",
+    runs: "Runs 7 days",
     schedule: { kind: "once", kickoff: new Date(2026, 8, 28, 9, 0).getTime(), durationMs: 7 * DAY, round: 12 },
     pool: ["spacex", "anduril", "neuralink", "figureai"],
     poolNote: "Rockets, robots, defense, brain tech",
@@ -164,6 +169,15 @@ export function currentRound(league: League, now: number): RoundState {
     return roundAt(league, kickoff, now);
   }
   return roundAt(league, kickoff + s.periodMs, now);
+}
+
+/** The next round a player can still draft for, or null if none is scheduled. */
+export function joinableRound(league: League, now: number): RoundState | null {
+  const r = currentRound(league, now);
+  if (r.phase === "upcoming") return r;
+  const s = league.schedule;
+  if (s.kind === "once") return null;
+  return roundAt(league, r.kickoff + s.periodMs, now);
 }
 
 /** The most recent round that has finished. */

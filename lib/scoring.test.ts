@@ -74,7 +74,7 @@ describe("boundary prices", () => {
 });
 
 describe("rankEntries", () => {
-  const returns = { a: 0.05, b: 0.02, c: -0.01, d: 0.03, e: 0.0, f: 0.04 };
+  const returns: Record<string, number> = { a: 0.05, b: 0.02, c: -0.01, d: 0.03, e: 0.0, f: 0.04 };
 
   it("orders by portfolio return, highest first", () => {
     const ranked = rankEntries(
@@ -104,7 +104,7 @@ describe("rankEntries", () => {
   });
 
   it("then on the second-best pick, then the earlier lock", () => {
-    const r = { x: 0.06, y: 0.0, z: 0.03, w: 0.03 };
+    const r: Record<string, number> = { x: 0.06, y: 0.0, z: 0.03, w: 0.03 };
     // [0.06, 0.03, 0.00] vs [0.06, 0.00, 0.03]: identical sorted → falls to lock time
     const ranked = rankEntries(
       [
