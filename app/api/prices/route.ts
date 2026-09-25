@@ -1,3 +1,5 @@
+import { after } from "next/server";
+import { maybeTick } from "@/lib/server/rounds";
 import { collectPrices, latestQuotes, snapshotsBetween } from "@/lib/server/prices";
 import { COMPANIES } from "@/lib/companies";
 
@@ -6,6 +8,7 @@ const FRESH_MS = 90_000;
 // GET /api/prices            → latest stored token/mark prices for the draft pool
 // GET /api/prices?since=<ms> → also the recorded snapshots since then (for charts)
 export async function GET(request: Request) {
+  after(() => maybeTick());
   let quotes = await latestQuotes();
   let source: "prestocks" | "fallback" = "prestocks";
   const newest = Math.max(0, ...quotes.map((x) => x.capturedAt));

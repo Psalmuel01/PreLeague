@@ -1,10 +1,12 @@
+import { after } from "next/server";
 import { sessionWallet } from "@/lib/server/auth";
-import { getLeague, seriesDef, seriesRounds } from "@/lib/server/rounds";
+import { getLeague, seriesDef, seriesRounds, maybeTick } from "@/lib/server/rounds";
 import { roundView } from "@/lib/server/views";
 
 // GET /api/series/:slug?which=current|next|last|<leagueId>
 //   current = the live round, else the next open one (default)
 export async function GET(request: Request, ctx: { params: Promise<{ slug: string }> }) {
+  after(() => maybeTick());
   const { slug } = await ctx.params;
   if (!seriesDef(slug)) return Response.json({ error: "Unknown league" }, { status: 404 });
   const which = new URL(request.url).searchParams.get("which") ?? "current";

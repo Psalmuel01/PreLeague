@@ -46,11 +46,17 @@ Scoring (`lib/scoring.ts`, `lib/settlement.ts`): return = (end − start) ÷ sta
 
 `/admin` (enter `ADMIN_SECRET`) shows the latest snapshot and recent job logs. Per round, it can add demo managers, start now, end & settle, retry settlement and cancel. Use it to run a complete round during a demo.
 
-## Deploying
+## Deploying (Vercel Hobby friendly)
 
-- **Database:** set `DATABASE_URL` to your Supabase Postgres connection string and run `npm run db:migrate`.
-- **Serverless (Vercel):** leave `RUN_JOBS_IN_PROCESS` unset. `vercel.json` schedules `/api/cron/tick` every minute; set `CRON_SECRET`. Per-minute crons need a paid Vercel plan.
-- **Single long-lived server:** keep `RUN_JOBS_IN_PROCESS=1`.
+No Vercel Cron is needed, because Hobby only allows daily crons.
+
+1. **Database:** create a Supabase project and set `DATABASE_URL` to its **transaction pooler** connection string (port 6543). Run `npm run db:migrate` once against it from your machine.
+2. **Vercel env vars:** `DATABASE_URL`, `ADMIN_SECRET`, `CRON_SECRET`, `PRIZE_AUTHORITY_SECRET`, `PRIZE_MINT`, `SOLANA_DEVNET_RPC_URL`. Leave `RUN_JOBS_IN_PROCESS` unset.
+3. **Keep prices flowing:** point a free per-minute pinger (e.g. [cron-job.org](https://cron-job.org)) at `GET https://<your-app>/api/cron/tick` with the header `Authorization: Bearer <CRON_SECRET>`.
+
+Page views also keep things moving. When `/api/prices`, `/api/leagues` or `/api/series/*` is requested and the newest snapshot is older than about 50 seconds, the server runs the scheduler tick after sending the response. A lease in `job_lease` ensures only one runs at a time. The external pinger covers quiet periods, so rounds get kick-off and whistle prices even with nobody on the site.
+
+On a single long-lived server (Railway, Fly, a VM), you can instead set `RUN_JOBS_IN_PROCESS=1` and skip the pinger.
 
 ## API
 

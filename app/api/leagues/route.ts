@@ -1,7 +1,8 @@
+import { after } from "next/server";
 import { LEAGUES } from "@/lib/leagues";
 import type { RoundSummary, SeriesJSON } from "@/lib/api-types";
 import { sessionWallet } from "@/lib/server/auth";
-import { seriesRounds, type LeagueRow } from "@/lib/server/rounds";
+import { seriesRounds, type LeagueRow, maybeTick } from "@/lib/server/rounds";
 import { roundView } from "@/lib/server/views";
 
 async function summary(row: LeagueRow | null, viewer: string | null): Promise<RoundSummary | null> {
@@ -20,6 +21,7 @@ async function summary(row: LeagueRow | null, viewer: string | null): Promise<Ro
 }
 
 export async function GET() {
+  after(() => maybeTick());
   const viewer = await sessionWallet();
   const out: SeriesJSON[] = [];
   for (const def of LEAGUES) {

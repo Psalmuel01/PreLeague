@@ -129,6 +129,33 @@ export async function tick(now = Date.now()) {
   }
 }
 
+/** Take a lease on a named job for `seconds`. Returns false if someone else holds it. */
+async function takeLease(name: string, seconds: number): Promise<boolean> {
+  const rows = await q<{ name: string }>(
+    `insert into job_lease (name, until) values ($1, now() + make_interval(secs => $2))
+     on conflict (name) do update set until = excluded.until where job_lease.until < now()
+     returning name`,
+    [name, seconds],
+  );
+  return rows.length > 0;
+}
+
+/**
+ * Run a tick if prices are stale, at most once per ~50s across all requests.
+ * Called after responses so page views keep prices and rounds moving on
+ * serverless hosts without a per-minute cron.
+ */
+export async function maybeTick(maxAgeSeconds = 50) {
+  try {
+    const [row] = await q<{ age: number | null }>(`select extract(epoch from now() - max(captured_at))::float as age from price_snapshots`);
+    if (row?.age !== null && row?.age !== undefined && row.age < maxAgeSeconds) return;
+    if (!(await takeLease("tick", maxAgeSeconds))) return;
+    await tick();
+  } catch (err) {
+    await logJob("maybeTick", false, err instanceof Error ? err.message : String(err));
+  }
+}
+
 // ---------- Reads ----------
 
 export async function getLeague(id: string): Promise<LeagueRow | null> {
