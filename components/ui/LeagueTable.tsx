@@ -18,7 +18,10 @@ type Props = {
 
 export function LeagueTable({ rows, mode, compact, limit, expandable = true, cols }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const shown = limit && !expanded ? rows.slice(0, limit) : rows;
+  const top = limit && !expanded ? rows.slice(0, limit) : rows;
+  // Always keep your own row visible, pinned under the cut if needed.
+  const you = rows.find((r) => r.you);
+  const shown = you && !top.includes(you) ? [...top, you] : top;
   const style = { "--lb-cols": cols ?? (compact ? "84px minmax(0, 1fr) 140px" : "76px minmax(0, 1fr) minmax(0, 1.5fr) 110px") } as React.CSSProperties;
 
   return (
@@ -37,7 +40,7 @@ export function LeagueTable({ rows, mode, compact, limit, expandable = true, col
           </span>
         </div>
         {shown.map((r) => (
-          <div key={r.id} className={["lb-row", r.you ? "you" : ""].join(" ")} role="row">
+          <div key={r.id} className={["lb-row", r.you ? "you" : "", r.you && !top.includes(r) ? "pinned" : ""].join(" ")} role="row">
             <span className="lb-rank" role="cell">
               {mode === "final" && r.rank <= 3 ? (
                 <Medal rank={r.rank} />

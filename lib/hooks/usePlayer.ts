@@ -27,7 +27,7 @@ export function usePlayer(): Player {
 
   const address = publicKey?.toBase58() ?? null;
   const displayName = name || (address ? shortAddress(address) : settings.demo ? "Guest" : "You");
-  const initials = (name ? name.slice(0, 1) : address ? address.slice(0, 2) : "G").toUpperCase();
+  const initials = (name ? name.slice(0, 1) : address ? address.slice(0, 2) : displayName.slice(0, 1)).toUpperCase();
 
   const sign = useCallback(
     async (message: string) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { CompanyId } from "@/lib/companies";
 
 // Player-side state for the MVP, persisted to localStorage. Lineups are also
@@ -72,7 +72,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<State>(EMPTY);
   const [ready, setReady] = useState(false);
   const [wallNow, setWallNow] = useState(0);
-  const loaded = useRef(false);
 
   // Hydrate from localStorage after mount (server render has no storage), then
   // start the 1s clock. setState here is intentional: storage is the external system.
@@ -91,7 +90,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     if (params.has("demo")) {
       setState((s) => ({ ...s, settings: { ...s.settings, demo: params.get("demo") !== "0" } }));
     }
-    loaded.current = true;
     setWallNow(Date.now());
     setReady(true);
     const id = setInterval(() => setWallNow(Date.now()), 1000);
@@ -99,14 +97,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  // Persist only after hydration, so the initial empty state never overwrites storage.
   useEffect(() => {
-    if (!loaded.current) return;
+    if (!ready) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
       // Storage full or blocked; state still works for this session.
     }
-  }, [state]);
+  }, [state, ready]);
 
   const setDraft = useCallback((key: string, picks: CompanyId[]) => {
     setState((s) => ({ ...s, drafts: { ...s.drafts, [key]: picks } }));
