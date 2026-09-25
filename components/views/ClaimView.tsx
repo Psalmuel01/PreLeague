@@ -5,6 +5,7 @@ import { useState } from "react";
 import { COMPANY_BY_ID } from "@/lib/companies";
 import { LEAGUE_BY_SLUG } from "@/lib/leagues";
 import { shortAddress, usd } from "@/lib/format";
+import { explorerTx, prizeNetwork, type PrizeNetwork } from "@/lib/network";
 import { useRound } from "@/lib/hooks/useRound";
 import { usePlayer } from "@/lib/hooks/usePlayer";
 import { useGame } from "@/components/providers/GameProvider";
@@ -12,7 +13,6 @@ import { PageSkeleton, Shell } from "@/components/shell/Shell";
 import { Achv, Badge, CoImg, Medal } from "@/components/ui/bits";
 import { Icon } from "@/components/ui/Icon";
 
-const explorer = (sig: string, network: string) => `https://explorer.solana.com/tx/${sig}${network === "devnet" ? "?cluster=devnet" : ""}`;
 
 export function ClaimView({ slug, roundId }: { slug: string; roundId?: string }) {
   const league = LEAGUE_BY_SLUG[slug];
@@ -57,7 +57,8 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
   const settlePrice = view.boundary.end?.[prize.symbol];
   const tokens = settlePrice ? view.prize.usd / settlePrice : null;
   const status = busy ? "pending" : view.claim?.status ?? "ready";
-  const network = view.claim?.network ?? "devnet";
+  const network = ((view.claim?.network as PrizeNetwork | undefined) ?? prizeNetwork()) as PrizeNetwork;
+  const mainnet = network === "mainnet";
 
   async function claim() {
     setBusy(true);
@@ -84,7 +85,7 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
               Prize claimed
             </h1>
             <div className="row wrap" style={{ gap: 10, justifyContent: "center" }}>
-              <p className="body">{prize.name} prize token was sent to your wallet on Solana {network}.</p>
+              <p className="body">{prize.name} prize token was sent to your wallet on Solana {mainnet ? "mainnet" : "devnet"}.</p>
               <Badge kind="xp">+100 XP</Badge>
             </div>
           </div>
@@ -131,7 +132,7 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
                 <span className="v row" style={{ alignItems: "baseline", gap: 6 }}>
                   ≈ {tokens ? tokens.toFixed(4) : "—"}
                   <span className="ticker" style={{ color: "var(--navy-ink-2)" }}>
-                    {prize.symbol} ({network} mock)
+                    {prize.symbol}{mainnet ? "" : " (devnet mock)"}
                   </span>
                 </span>
               </div>
@@ -152,7 +153,7 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
                 <span className="k">Network</span>
                 <span className="v row" style={{ gap: 8 }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--navy-ink-2)" }} />
-                  Solana {network}
+                  Solana {mainnet ? "mainnet" : "devnet"}
                 </span>
               </div>
             </div>
@@ -178,7 +179,7 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
                   Join another league
                 </Link>
                 {view.claim?.tx && (
-                  <a className="btn btn-ghost-night" href={explorer(view.claim.tx, network)} target="_blank" rel="noreferrer">
+                  <a className="btn btn-ghost-night" href={explorerTx(view.claim.tx, network)} target="_blank" rel="noreferrer">
                     View transaction
                     <Icon name="external" size="sm" />
                   </a>
@@ -193,7 +194,9 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
         </section>
 
         <p className="caption center">
-          Hackathon build: prizes are paid in a mock {prize.symbol} token on Solana devnet, sent to the wallet you played with.
+          {mainnet
+            ? `Paid in real ${prize.name} PreStock on Solana mainnet. PreStocks withholds a small transfer fee (1–3%) from token transfers.`
+            : `Hackathon build: prizes are paid in a mock ${prize.symbol} token on Solana devnet, sent to the wallet you played with.`}
         </p>
       </div>
     </Shell>

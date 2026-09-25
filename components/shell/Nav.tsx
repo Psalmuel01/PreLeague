@@ -10,6 +10,7 @@ import { useGame } from "@/components/providers/GameProvider";
 import { Avatar } from "@/components/ui/bits";
 import { Icon, LogoMark, type IconName } from "@/components/ui/Icon";
 import { shortAddress } from "@/lib/format";
+import { prizeNetwork } from "@/lib/network";
 
 const LIVE_HREF = `/league/${DEFAULT_LEAGUE.slug}/live`;
 
@@ -133,7 +134,8 @@ export function Footer() {
           </span>
         </span>
         <p className="caption" style={{ maxWidth: 560, fontSize: 13 }}>
-          League squads are virtual — you never buy the companies you draft. Hackathon prizes are paid in a mock PreStock token on Solana devnet. Prices from the PreStocks API.
+          League squads are virtual — you never buy the companies you draft.{" "}
+          {prizeNetwork() === "mainnet" ? "Prizes are real PreStocks, sent to your wallet on Solana." : "Hackathon prizes are paid in a mock PreStock token on Solana devnet."} Prices from the PreStocks API.
         </p>
         <span className="spacer" />
         <nav style={{ display: "flex", gap: 24, fontSize: 14 }} aria-label="Footer">
