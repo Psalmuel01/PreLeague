@@ -295,7 +295,7 @@ img { max-width: 100%; }
 .bd-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px 84px 76px; gap: 12px; align-items: center; }
 .bd-head { height: 40px; padding: 0 18px; background: var(--navy); color: #fff; font-family: var(--f-display); font-size: 14px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
 @media (max-width: 1023px) {
-  .live-grid { display: flex; flex-direction: column; gap: 16px; }
+  .live-grid { display: flex; flex-direction: column; align-items: stretch; gap: 16px; }
   .live-col { display: contents; }
   .live-squad { order: 1; } .live-table { order: 2; } .live-race { order: 3; } .live-movers { order: 4; } .live-rules { order: 5; }
   .live-race { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -366,3 +366,6 @@ img { max-width: 100%; }
 .early-toast .muted { color: var(--ink-2); }
 .scoring-grid { grid-template-columns: minmax(0, 1fr) 110px 110px 90px; }
 @media (max-width: 859px) { .scoring-grid { grid-template-columns: minmax(0, 1fr) 76px 76px 66px; gap: 6px; padding-left: 12px !important; padding-right: 12px !important; } .scoring-grid .num.small { font-size: 11.5px; } }
+.lb-picks { min-width: 0; }
+.lb-picks .picks-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.foot-inner nav a { white-space: nowrap; }
