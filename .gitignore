@@ -19,6 +19,7 @@
 
 # production
 /build
+/video
 
 # misc
 .DS_Store
