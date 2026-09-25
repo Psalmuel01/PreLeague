@@ -3,7 +3,10 @@
 import { useMemo } from "react";
 import { LEAGUE_BY_SLUG, roundAt, type League, type RoundState } from "@/lib/leagues";
 import { EARLY_BIRD_MS, companyReturns, levelFor, managersFor, roundXp, standingsFor, type Ranked } from "@/lib/standings";
+import { COMPANY_BY_ID } from "@/lib/companies";
+import { endPrice, startPrice } from "@/lib/scoring";
 import { useGame, type Entry } from "@/components/providers/GameProvider";
+import { usePrices } from "@/components/providers/PriceProvider";
 
 export type HistoryItem = {
   key: string;
@@ -21,6 +24,7 @@ export type HistoryItem = {
 
 export function useHistory(you: { name: string; initials: string }) {
   const { entries, prices, claims, now, ready } = useGame();
+  const { history: snapshots, priceAt, simulated: simOn } = usePrices();
 
   return useMemo(() => {
     const items: HistoryItem[] = [];
@@ -38,7 +42,24 @@ export function useHistory(you: { name: string; initials: string }) {
       }
       const real = prices[key];
       const sim = prices[`${key}:sim`];
-      const bp = real?.start && real?.end ? real : sim?.start && sim?.end ? sim : undefined;
+      // Stored boundary prices first; otherwise derive them the same way the round page would.
+      const derive = (useSim: boolean) => {
+        const start: Record<string, number> = {};
+        const end: Record<string, number> = {};
+        for (const id of league.pool) {
+          const sym = COMPANY_BY_ID[id].symbol;
+          try {
+            start[sym] = useSim ? priceAt(sym, round.kickoff) ?? NaN : startPrice(snapshots, sym, round.kickoff);
+            end[sym] = useSim ? priceAt(sym, round.endsAt) ?? NaN : endPrice(snapshots, sym, round.endsAt);
+          } catch {
+            return undefined;
+          }
+          if (!(start[sym] > 0 && end[sym] > 0)) return undefined;
+        }
+        return { start, end };
+      };
+      const bp =
+        real?.start && real?.end ? real : sim?.start && sim?.end ? sim : simOn ? derive(true) : derive(false);
       const standings = bp ? standingsFor(managersFor(league, round.kickoff, entry, you), companyReturns(league, bp.start, bp.end)) : null;
       const mine = standings?.find((s) => s.you) ?? null;
       const earlyBird = entry.lockedAt <= round.kickoff - EARLY_BIRD_MS;
@@ -50,7 +71,7 @@ export function useHistory(you: { name: string; initials: string }) {
         standings,
         you: mine,
         winner: standings?.[0] ?? null,
-        simulated: bp === sim && Boolean(sim),
+        simulated: Boolean(bp) && bp !== real && (bp === sim || simOn),
         earlyBird,
         xp: roundXp(mine?.rank ?? null, earlyBird).total,
       });
@@ -86,5 +107,5 @@ export function useHistory(you: { name: string; initials: string }) {
         { id: "streak", title: "5-round streak", caption: "Play 5 rounds in a row", icon: "lock" as const, tone: undefined, done: items.length + active.length >= 5 },
       ],
     };
-  }, [entries, prices, claims, now, ready, you]);
+  }, [entries, prices, claims, now, ready, you, snapshots, priceAt, simOn]);
 }

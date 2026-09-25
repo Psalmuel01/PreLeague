@@ -43,7 +43,7 @@ export function LockedView({ slug }: { slug: string }) {
   const slots = entry.picks.map((id) => ({ id, value: "33.3%" }));
   const names = entry.picks.map((p) => COMPANY_BY_ID[p].name);
   const share = () =>
-    shareText(`My ${league.name} lineup: ${names.join(" · ")}. Think you can beat it? 🏟️`, `/league/${slug}`);
+    shareText(`My ${league.name} lineup: ${names.join(" · ")}. Think you can beat it?`, `/league/${slug}`);
 
   return (
     <Shell>
@@ -145,7 +145,6 @@ export function LockedView({ slug }: { slug: string }) {
 
           <figure style={{ margin: 0 }}>
             <div className="share-card team-sheet" aria-label={`Share card preview: ${player.displayName}’s squad for ${league.name}`}>
-              <span className="band-slash thin hide-sm" style={{ right: 318, opacity: 0.9 }} aria-hidden="true" />
               <div className="stack" style={{ position: "relative", padding: "30px 34px", gap: 18 }}>
                 <div className="row" style={{ justifyContent: "space-between" }}>
                   <span className="wordmark" style={{ fontSize: 20, gap: 8 }}>

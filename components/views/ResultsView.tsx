@@ -331,7 +331,7 @@ export function ResultsView({ slug, kickoff }: { slug: string; kickoff?: number 
             {view.boundary.startLate && <p className="caption">Kick-off prices were captured at {timeOfDay(view.boundary.startAt!)} (round opened late on this device).</p>}
           </div>
           <div className="card" style={{ overflow: "hidden" }}>
-            <div className="bd-row bd-head" style={{ gridTemplateColumns: "minmax(0,1fr) 110px 110px 90px" }}>
+            <div className="bd-row bd-head scoring-grid">
               <span>Company</span>
               <span style={{ textAlign: "right" }}>Kick-off</span>
               <span style={{ textAlign: "right" }}>Final</span>
@@ -342,9 +342,9 @@ export function ResultsView({ slug, kickoff }: { slug: string; kickoff?: number 
               .map((id, i) => {
                 const c = COMPANY_BY_ID[id];
                 return (
-                  <div key={id} className="bd-row" style={{ gridTemplateColumns: "minmax(0,1fr) 110px 110px 90px", padding: "12px 18px", borderTop: i ? "1px solid var(--line)" : 0 }}>
-                    <span className="row" style={{ gap: 10, fontWeight: 700 }}>
-                      <CoLogo id={id} size="sm" />
+                  <div key={id} className="bd-row scoring-grid" style={{ padding: "12px 18px", borderTop: i ? "1px solid var(--line)" : 0 }}>
+                    <span className="row" style={{ gap: 10, fontWeight: 700, minWidth: 0 }}>
+                      <CoLogo id={id} size="sm" className="hide-sm" />
                       {c.name}
                     </span>
                     <span className="num small faint" style={{ textAlign: "right" }}>
