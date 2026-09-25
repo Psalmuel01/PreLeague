@@ -30,6 +30,8 @@ Scoring lives in [`lib/scoring.ts`](../lib/scoring.ts) and [`lib/settlement.ts`]
 - **Squad score:** the equal-weight average of the three pick returns.
 - **Ties:** the better best pick wins, then the better second-best pick, then whoever locked their lineup first.
 
+**Demo players:** the admin's "Add demo managers" seeds demo players (`bot:*` wallets, `profiles.is_bot`) so a demo table isn't empty. They're labelled "Demo" in the UI and ranked normally, but they can't win: `winner_wallet` is the best-ranked real wallet, or none if only demo players entered.
+
 Averaging 3 snapshots smooths out a single odd print at the boundary. If any company in the pool has no snapshot inside the 3-minute window, the round isn't scored. It stays in `settling` and retries each tick. After 10 minutes it moves to `review_required`, where an admin can retry settlement or cancel the round.
 
 Settlement is idempotent: running it twice gives the same frozen result.

@@ -27,7 +27,7 @@ Your squad is virtual. You never buy the companies you draft, and entry is free.
 - **Live leaderboard.** Scores and ranks update every 10 seconds while a round runs.
 - **Fair settlement.** Kick-off and final prices are 3-snapshot averages. A stale or missing price sends the round to review instead of scoring it on bad data.
 - **On-chain prizes.** The winner claims a PreStock prize to their wallet: a mock token on devnet by default, or real PreStocks on mainnet.
-- **Admin console.** Start, end, settle or cancel rounds, and add demo managers, for live demos.
+- **Admin console.** Start, end, settle or cancel rounds, and add demo players for live demos. Demo players are labelled "Demo" and can never win the prize.
 
 ## Leagues
 
