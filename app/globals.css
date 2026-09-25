@@ -240,3 +240,95 @@ img { max-width: 100%; }
   .step-num { font-size: 64px; -webkit-text-stroke-width: 1.5px; }
   .step-card .h-3 { font-size: 21px; }
 }
+
+/* ---------- Lobby ---------- */
+.rule-row { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; align-items: center; gap: 20px; min-height: 72px; padding-right: 22px; overflow: hidden; }
+.rule-num { align-self: stretch; min-height: 72px; background: var(--navy); color: var(--lime); font-size: 44px; display: flex; align-items: center; justify-content: center; }
+.pool-pitch { height: auto; padding: 40px 20px 48px; }
+.pool-kits { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4, 112px); justify-content: center; gap: 36px 52px; }
+@media (max-width: 859px) {
+  .rule-row { grid-template-columns: 56px minmax(0, 1fr); gap: 4px 14px; padding: 0; }
+  .rule-row .small { grid-column: 2; padding-bottom: 12px; }
+  .rule-row .title { padding-top: 12px; }
+  .rule-num { grid-row: 1 / span 2; min-height: 64px; font-size: 36px; }
+  .pool-kits { grid-template-columns: repeat(auto-fill, 112px); gap: 24px 16px; }
+}
+
+/* ---------- Draft page ---------- */
+.draft-main { position: relative; z-index: 2; margin-top: -40px; padding-bottom: 64px; }
+.draft-shirt { width: 60px !important; height: 60px !important; border-radius: 18px !important; }
+.draft-shirt .mono-mark { font-size: 21px !important; }
+.draft-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1023px) { .draft-main { padding-bottom: 120px; } }
+@media (max-width: 859px) {
+  .draft-main { margin-top: 0; }
+  .draft-shirt { width: 48px !important; height: 48px !important; border-radius: 14px !important; }
+  .draft-shirt .mono-mark { font-size: 17px !important; }
+  .draft-card .draft-btn { height: 44px; }
+}
+
+/* ---------- Locked ---------- */
+.locked-check { width: 72px; height: 72px; border-radius: 50%; background: var(--lime); color: var(--navy); display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 8px rgba(198, 244, 50, .18); flex-shrink: 0; }
+.early-toast { position: absolute; left: -56px; bottom: -34px; z-index: 3; padding: 14px 20px 14px 14px; gap: 14px; animation-delay: .35s; }
+.team-sheet { display: grid; grid-template-columns: minmax(0, 1fr) 300px; min-height: 380px; box-shadow: 0 30px 60px -30px rgba(10,16,48,.55); }
+.team-sheet-pitch { border-radius: 0 !important; border: 0 !important; box-shadow: none !important; }
+@media (max-width: 1023px) {
+  .locked-pitch { display: none; }
+  .early-toast { position: static; margin-top: -8px; }
+}
+@media (max-width: 859px) {
+  .locked-check { width: 56px; height: 56px; }
+  .team-sheet { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  .team-sheet > .stack { padding: 22px 20px !important; }
+}
+
+/* ---------- Live ---------- */
+.live-band { padding: 40px 0 88px; }
+.live-stats .stat-v { font-size: 44px; }
+.stat-note { font-size: 13px; font-weight: 600; color: var(--navy-ink-2); }
+.live-main { position: relative; z-index: 2; margin-top: -48px; padding-bottom: 64px; }
+.live-grid { display: grid; grid-template-columns: 392px minmax(0, 1fr); gap: 32px; align-items: start; }
+.live-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.live-race { padding: 22px 26px; display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); gap: 24px; align-items: center; }
+.race-cell { display: flex; flex-direction: column; gap: 6px; padding-left: 24px; border-left: 1px solid var(--navy-line); }
+.company-hero { position: relative; height: 128px; border-radius: 16px; overflow: hidden; background-color: var(--pitch-a); background-image: repeating-linear-gradient(90deg, var(--pitch-a) 0 44px, var(--pitch-b) 44px 88px); display: flex; align-items: center; gap: 14px; padding: 0 16px; color: #fff; }
+.bd-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px 84px 76px; gap: 12px; align-items: center; }
+.bd-head { height: 40px; padding: 0 18px; background: var(--navy); color: #fff; font-family: var(--f-display); font-size: 14px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+@media (max-width: 1023px) {
+  .live-grid { display: flex; flex-direction: column; gap: 16px; }
+  .live-col { display: contents; }
+  .live-squad { order: 1; } .live-table { order: 2; } .live-race { order: 3; } .live-movers { order: 4; } .live-rules { order: 5; }
+  .live-race { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .live-race > :first-child { grid-column: 1 / -1; }
+  .race-cell:nth-child(2) { border-left: 0; padding-left: 0; }
+}
+@media (max-width: 859px) {
+  .live-band { padding: 12px 0 58px; }
+  .live-stats { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+  .live-stats .stat-box { padding: 12px !important; }
+  .live-stats .stat-box .k { font-size: 12px; }
+  .live-stats .stat-v { font-size: 30px; }
+  .live-main { margin-top: -46px; }
+  .live-race { padding: 18px; gap: 14px; }
+  .race-cell { padding-left: 14px; }
+  .bd-row { grid-template-columns: minmax(0, 1fr) 72px 76px 70px; gap: 8px; }
+  .bd-row .num.small { font-size: 12px; }
+}
+
+/* ---------- Results ---------- */
+.results-intro { padding-bottom: 56px; }
+.podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end; }
+.podium-block { border-radius: 12px 12px 0 0; display: flex; justify-content: center; padding-top: 14px; box-shadow: inset 0 6px 0 rgba(255,255,255,.35); }
+.podium-trophy { margin-bottom: 4px; }
+.podium-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 1023px) { .results-intro { padding-bottom: 8px; } }
+@media (max-width: 859px) {
+  .podium .avatar-lg { width: 40px; height: 40px; font-size: 18px; }
+  .podium .score { font-size: 48px !important; }
+}
+
+/* ---------- Claim ---------- */
+.claim-strip { height: 40px; justify-content: center; gap: 8px; background: var(--gold-bg); color: var(--navy); font-family: var(--f-display); font-size: 15px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.claim-medal { width: 88px; height: 88px; border-radius: 50%; background: var(--gold-tint); box-shadow: 0 0 0 3px var(--gold-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.cols-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 480px) { .cols-2 { grid-template-columns: minmax(0, 1fr); } .claim-medal { width: 64px; height: 64px; } .claim-medal .kit-shirt { width: 52px; height: 52px; } }

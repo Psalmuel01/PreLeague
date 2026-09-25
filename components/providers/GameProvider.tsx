@@ -74,6 +74,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [wallNow, setWallNow] = useState(0);
   const loaded = useRef(false);
 
+  // Hydrate from localStorage after mount (server render has no storage), then
+  // start the 1s clock. setState here is intentional: storage is the external system.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -94,6 +97,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const id = setInterval(() => setWallNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!loaded.current) return;

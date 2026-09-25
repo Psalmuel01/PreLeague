@@ -21,10 +21,12 @@ type Props = {
   label?: string;
   className?: string;
   style?: React.CSSProperties;
+  /** "row": all three side by side, centre pick raised (compact mobile pitch). */
+  layout?: "formation" | "row";
 };
 
 /** Your squad on the pitch: one pick up top, two below. */
-export function Pitch({ slots, height, mini, tag, rowGap, colGap, padTop, pop, onRemove, label, className, style }: Props) {
+export function Pitch({ slots, height, mini, tag, rowGap, colGap, padTop, pop, onRemove, label, className, style, layout }: Props) {
   const [top, ...bottom] = slots;
   const aria =
     label ??
@@ -47,12 +49,26 @@ export function Pitch({ slots, height, mini, tag, rowGap, colGap, padTop, pop, o
           } as React.CSSProperties
         }
       >
-        <div className="line">{top && <Kit slot={top} n={1} mini={mini} pop={pop} onRemove={onRemove} />}</div>
-        <div className="line">
-          {bottom.map((s, i) => (
-            <Kit key={i} slot={s} n={i + 2} mini={mini} pop={pop} onRemove={onRemove} />
-          ))}
-        </div>
+        {layout === "row" ? (
+          <div className="line" style={{ alignItems: "flex-start" }}>
+            {[1, 0, 2].map((i) =>
+              slots[i] ? (
+                <div key={i} style={{ paddingTop: i === 0 ? 0 : 24 }}>
+                  <Kit slot={slots[i]} n={i + 1} mini={mini} pop={pop} onRemove={onRemove} />
+                </div>
+              ) : null,
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="line">{top && <Kit slot={top} n={1} mini={mini} pop={pop} onRemove={onRemove} />}</div>
+            <div className="line">
+              {bottom.map((s, i) => (
+                <Kit key={i} slot={s} n={i + 2} mini={mini} pop={pop} onRemove={onRemove} />
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

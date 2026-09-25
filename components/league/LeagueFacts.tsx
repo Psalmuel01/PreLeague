@@ -52,12 +52,15 @@ export function LeagueFacts({
   variant,
   eyebrowBadges,
   highlight,
+  bare,
 }: {
   league: League;
   round: RoundState;
   variant: "home" | "list";
   eyebrowBadges?: React.ReactNode;
   highlight?: "navy";
+  /** Render without card chrome, for nesting inside another card. */
+  bare?: boolean;
 }) {
   const { entries, now } = useGame();
   const joined = Boolean(entries[`${league.slug}@${round.kickoff}`]);
@@ -72,7 +75,7 @@ export function LeagueFacts({
 
   return (
     <article
-      className="card facts"
+      className={bare ? "facts" : "card facts"}
       style={
         {
           "--cols": cols,

@@ -18,6 +18,8 @@ type Board = {
 type PriceContext = {
   /** Current token price by symbol (simulated when demo prices are on). */
   prices: Record<string, number>;
+  /** PreStocks mark (reference) price by symbol. */
+  marks: Record<string, number>;
   source: PriceSource;
   updatedAt: number | null;
   /** Price at an arbitrary time: exact in simulated mode, from recorded history otherwise. */
@@ -104,16 +106,23 @@ export function PriceProvider({ children }: { children: React.ReactNode }) {
     [simulated, base],
   );
 
+  const marks = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const [s, q] of Object.entries(board?.quotes ?? {})) out[s] = q.markPrice;
+    return out;
+  }, [board]);
+
   const value = useMemo<PriceContext>(
     () => ({
       prices,
+      marks,
       source: simulated ? "simulated" : board ? board.source : "loading",
       updatedAt: simulated ? now : board ? board.capturedAt : null,
       history,
       priceAt,
       simulated,
     }),
-    [prices, simulated, board, now, history, priceAt],
+    [prices, marks, simulated, board, now, history, priceAt],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

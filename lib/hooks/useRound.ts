@@ -2,33 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { COMPANY_BY_ID, type CompanyId } from "@/lib/companies";
-import {
-  currentRound,
-  lastFinishedRound,
-  opponentsFor,
-  roundAt,
-  roundKey,
-  type League,
-  type Opponent,
-  type RoundState,
-} from "@/lib/leagues";
-import { endPrice, rankEntries, startPrice } from "@/lib/scoring";
+import { currentRound, lastFinishedRound, roundAt, roundKey, type League, type RoundState } from "@/lib/leagues";
+import { endPrice, startPrice } from "@/lib/scoring";
+import { companyReturns, managersFor, standingsFor, type Manager } from "@/lib/standings";
 import { useGame, type Entry, type RoundPrices } from "@/components/providers/GameProvider";
 import { usePrices } from "@/components/providers/PriceProvider";
 
-const MIN = 60_000;
-const LATE_CAPTURE_LIMIT_MS = 5 * MIN;
+const LATE_CAPTURE_LIMIT_MS = 5 * 60_000;
 
-export type Manager = {
-  id: string;
-  name: string;
-  initials: string;
-  avatar: string;
-  mono?: boolean;
-  you: boolean;
-  picks: CompanyId[];
-  lockedAt: number;
-};
+export type { Manager };
 
 export type Standing = Manager & {
   rank: number;
@@ -51,8 +33,8 @@ export type RoundView = {
   standings: Standing[] | null;
   you: Standing | null;
   boundary: RoundPrices;
-  /** Current or final price per company used for the returns. */
-  nowPrices: Record<CompanyId, number> | null;
+  /** Current or final price per symbol used for the returns. */
+  nowPrices: Record<string, number> | null;
   /** Round finished but final prices couldn't be established. */
   unscoreable: boolean;
 };
@@ -115,57 +97,22 @@ export function useRound(
     }
   }, [round, league.pool, prices, history, priceAt, simulated, boundary, priceKey, now, setRoundPrices]);
 
-  const managers = useMemo<Manager[]>(() => {
-    if (!round) return [];
-    const opp: Manager[] = opponentsFor(league).map((o: Opponent) => ({
-      id: o.id,
-      name: o.name,
-      initials: o.initials,
-      avatar: o.avatar,
-      mono: Boolean(o.wallet),
-      you: false,
-      picks: o.picks,
-      lockedAt: round.kickoff - o.lockedMinsBefore * MIN,
-    }));
-    if (entry) {
-      opp.push({
-        id: "you",
-        name: opts.youName ?? "You",
-        initials: opts.youInitials ?? "Y",
-        avatar: "av-you",
-        you: true,
-        picks: entry.picks,
-        lockedAt: entry.lockedAt,
-      });
-    }
-    return opp;
-  }, [round, league, entry, opts.youName, opts.youInitials]);
+  const managers = useMemo<Manager[]>(
+    () => (round ? managersFor(league, round.kickoff, entry, { name: opts.youName ?? "You", initials: opts.youInitials ?? "Y" }) : []),
+    [round, league, entry, opts.youName, opts.youInitials],
+  );
 
-  const nowPrices = useMemo<Record<CompanyId, number> | null>(() => {
+  const nowPrices = useMemo<Record<string, number> | null>(() => {
     if (!round || round.phase === "upcoming") return null;
-    const source = round.phase === "final" ? boundary.end : prices;
-    if (!source) return null;
-    const out = {} as Record<CompanyId, number>;
-    for (const id of league.pool) {
-      const p = source[COMPANY_BY_ID[id].symbol];
-      if (!p) return null;
-      out[id] = p;
-    }
-    return out;
-  }, [round, boundary.end, prices, league.pool]);
+    return (round.phase === "final" ? boundary.end : prices) ?? null;
+  }, [round, boundary.end, prices]);
 
-  const returns = useMemo<Record<CompanyId, number> | null>(() => {
-    if (!boundary.start || !nowPrices) return null;
-    const out = {} as Record<CompanyId, number>;
-    for (const id of league.pool) {
-      const start = boundary.start[COMPANY_BY_ID[id].symbol];
-      if (!start) return null;
-      out[id] = nowPrices[id] / start - 1;
-    }
-    return out;
-  }, [boundary.start, nowPrices, league.pool]);
+  const returns = useMemo(
+    () => companyReturns(league, boundary.start, nowPrices ?? undefined),
+    [league, boundary.start, nowPrices],
+  );
 
-  const ranked = useMemo(() => (returns ? rankEntries(managers, returns) : null), [managers, returns]);
+  const ranked = useMemo(() => standingsFor(managers, returns), [managers, returns]);
   const moves = useRankMoves(key, ranked);
 
   const standings = useMemo<Standing[] | null>(
