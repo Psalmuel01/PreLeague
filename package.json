@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "db:migrate": "tsx --env-file-if-exists=.env.local scripts/migrate.ts"
+    "db:migrate": "tsx --env-file-if-exists=.env.local scripts/migrate.ts",
+    "prize:setup": "tsx --env-file-if-exists=.env.local scripts/prize-setup.ts",
+    "smoke": "tsx --env-file-if-exists=.env.local scripts/smoke.ts"
   },
   "dependencies": {
     "@solana/spl-token": "^0.4.15",
