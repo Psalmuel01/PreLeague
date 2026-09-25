@@ -94,7 +94,12 @@ async function main() {
   const late = await bob.call(`/api/leagues/${id}/lineup`, { picks: ["openai", "kalshi", "spacex"] });
   assert(late.status === 409, "edits rejected after kick-off");
 
-  const live = await alice.call(`/api/leagues/${id}`);
+  // Standings appear once the first snapshot after kick-off is recorded (up to a minute).
+  let live = await alice.call(`/api/leagues/${id}`);
+  for (let i = 0; i < 18 && !live.json.standings; i++) {
+    await new Promise((r) => setTimeout(r, 5000));
+    live = await alice.call(`/api/leagues/${id}`);
+  }
   const standings = live.json.standings as { name: string; rank: number }[] | null;
   assert(live.json.status === "live" && Array.isArray(standings), "live leaderboard has standings", live.json.status);
   assert((live.json.entry as Json | null)?.picks?.toString() === "openai,kalshi,spacex", "server kept Alice's edited lineup");
@@ -110,7 +115,8 @@ async function main() {
   const final = await alice.call(`/api/leagues/${id}`);
   const fs = final.json.standings as { id: string; rank: number; name: string; portfolioReturn: number }[];
   assert(fs?.length >= 2 && fs[0].rank === 1, `final table frozen (${fs?.length} managers, winner ${fs?.[0]?.name} ${(fs?.[0]?.portfolioReturn * 100).toFixed(3)}%)`);
-  assert(final.json.winnerWallet === fs[0].id, "winner recorded on the league");
+  const bestReal = fs.find((x) => !x.id.startsWith("bot:"));
+  assert(final.json.winnerWallet === (bestReal?.id ?? null), "prize winner is the best-ranked real wallet (demo players can't win)");
 
   const me = await alice.call("/api/me");
   const h = (me.json.history as { leagueId: string; rank: number | null }[]).find((x) => x.leagueId === id);
@@ -136,7 +142,7 @@ async function main() {
       const twice = await winner.call(`/api/leagues/${id}/claim`, {});
       assert(twice.json.status === "sent" && twice.json.tx === paid.json.tx, "second claim returns the same transfer, no double payout");
     } else {
-      console.log("• winner is a demo manager this round; skipping claim");
+      console.log("• another wallet won this round; skipping claim");
     }
   }
 

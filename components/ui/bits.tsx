@@ -2,6 +2,7 @@ import Image from "next/image";
 import { COMPANY_BY_ID, type CompanyId } from "@/lib/companies";
 import { clockParts, direction, durationLabel, pct } from "@/lib/format";
 import { Icon } from "./Icon";
+import { PRIZE_SUFFIX } from "@/lib/network";
 
 // Small presentational pieces of the Matchday system.
 
@@ -147,7 +148,7 @@ export function PrizeLine({
       <CoLogo id={company} size={size} />
       <span>
         ${usd} in {c.name}
-        {br ? <br /> : " "}PreStock
+        {br ? <br /> : " "}PreStock{PRIZE_SUFFIX}
       </span>
     </div>
   );

@@ -5,28 +5,45 @@ import { useState } from "react";
 import { Shell } from "@/components/shell/Shell";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Pitch } from "@/components/ui/Pitch";
+import { prizeNetwork } from "@/lib/network";
+
+const MAINNET = prizeNetwork() === "mainnet";
 
 const STEPS: { n: number; title: string; body: string; icon: IconName; lime?: boolean }[] = [
   { n: 1, title: "Draft", body: "Choose three private companies.", icon: "plus" },
   { n: 2, title: "Compete", body: "Your squad moves with real PreStock market prices.", icon: "chart" },
-  { n: 3, title: "Win", body: "Top performers can receive real PreStocks on Solana.", icon: "trophy", lime: true },
+  {
+    n: 3,
+    title: "Win",
+    body: MAINNET ? "The best player wins a PreStock prize on Solana." : "The best player wins a prize token on Solana devnet.",
+    icon: "trophy",
+    lime: true,
+  },
 ];
 
 const RULES: [string, string][] = [
   ["Squads", "Pick exactly three companies from the league’s draft pool. Every pick has equal weight (33.3%). Anyone can draft any company — picks aren’t exclusive."],
-  ["Lock", "You sign a message with your wallet to lock your lineup. No transaction, no fee. Lineups can’t change once the round kicks off."],
-  ["Price source", "Scores use the PreStocks API token price. Kick-off and final-whistle prices are the average of the first and last snapshots of the round, sampled every minute, so one odd quote can’t decide a round."],
+  ["Lock", "Sign in once by signing a message with your wallet. No transaction, no fee. Save or change your picks any time before kick-off; after that, lineups are locked."],
+  ["Price source", "Scores use the PreStocks API token price, recorded every minute. The kick-off price is the average of the first three snapshots after kick-off, and the final price the average of the last three before the whistle, so one odd quote can’t decide a round."],
   ["Scoring", "Each company’s return is (end − start) ÷ start. Your squad’s score is the plain average of your three returns."],
   ["Tie-breaks", "Equal scores are split by your best single pick, then your second-best pick, then whoever locked their lineup first."],
-  ["Missing prices", "If any company has no fresh price near kick-off or the final whistle, the round is reviewed or voided. We never score on stale or invented prices."],
-  ["Corporate actions", "If a PreStock converts, lists, pauses or changes its token mechanics mid-round, the affected round is voided and prizes are re-run."],
-  ["Prizes", "The winner receives the league’s prize in real PreStocks, sent to the wallet they played with. Squads themselves are virtual — you never buy what you draft."],
+  ["Missing prices", "If any company has no price within 3 minutes of kick-off or the final whistle, the round isn’t scored. It goes to review, where it’s re-settled or cancelled. We never score on stale or invented prices."],
+  ["Corporate actions", "If a PreStock pauses, converts or changes its token mechanics mid-round, an admin can cancel the round. This is a manual check today."],
+  ["Demo players", "Some rounds include seeded demo players, marked Demo, so the table isn’t empty. They’re ranked like everyone else but can’t win: the prize goes to the best-placed real player."],
+  [
+    "Prizes",
+    MAINNET
+      ? "The prize winner receives the league’s prize in PreStock, worth the prize amount at the final price, sent to the wallet they played with. PreStocks withholds a 1–3% transfer fee. Squads themselves are virtual — you never buy what you draft."
+      : "Hackathon build: the prize winner receives a mock prize token on Solana devnet, sized to the prize value and sent to the wallet they played with. Real PreStock prizes need a funded prize wallet. Squads themselves are virtual — you never buy what you draft.",
+  ],
 ];
 
 const FAQS = [
   { q: "Do I have to buy the companies I draft?", a: "No. Your league squad is virtual — it simply tracks how your three picks perform. Nothing is bought or sold." },
-  { q: "What is a PreStock?", a: "A PreStock is a Solana token that tracks the price of a private company’s shares, backed 1:1 by SPV exposure. It lets you follow — and own a slice of — companies before they go public." },
-  { q: "How do I get my prize?", a: "Claim it from the results screen after the final whistle. It’s sent straight to the wallet you connected." },
+  { q: "What is a PreStock?", a: "A PreStock is a Solana token that gives economic exposure to a private company such as OpenAI or SpaceX. Holding one isn’t the same as owning the company’s shares directly. See prestocks.com for how they work." },
+  { q: "How do I get my prize?", a: MAINNET
+      ? "Claim it from the results screen after the final whistle. It’s sent straight to the wallet you played with."
+      : "Claim it from the results screen after the final whistle. In this hackathon build it’s a mock prize token on Solana devnet, sent to the wallet you played with." },
   { q: "Why is the round only 15 minutes?", a: "Sprint rounds are built for quick, live competition. Daily and weekly leagues run on the same rules over longer windows." },
 ];
 
@@ -45,7 +62,7 @@ export function HowItWorksView() {
             How <span className="hl">PreLeague</span> works
           </h1>
           <p className="lead" style={{ maxWidth: 560, color: "var(--navy-ink-2)" }}>
-            Fantasy sports for private companies. Three picks, one round, real prizes.
+            Fantasy sports for private companies. Three picks, one round, one winner.
           </p>
         </div>
       </section>

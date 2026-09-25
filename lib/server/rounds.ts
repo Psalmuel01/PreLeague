@@ -93,7 +93,10 @@ export async function settleLeague(id: string, now = Date.now(), opts: { retryRe
     const endsAt = league.ends_at.getTime();
     const snapshots = await snapshotsBetween(symbols, startsAt - SCORING.maxStalenessMs, endsAt + SCORING.maxStalenessMs);
     const entries = (
-      await c.query<{ wallet: string; picks: CompanyId[]; locked_at: Date }>(`select wallet, picks, locked_at from entries where league_id = $1`, [id])
+      await c.query<{ wallet: string; picks: CompanyId[]; locked_at: Date; is_bot: boolean | null }>(
+        `select e.wallet, e.picks, e.locked_at, p.is_bot from entries e left join profiles p on p.wallet = e.wallet where e.league_id = $1`,
+        [id],
+      )
     ).rows;
 
     const out = settle({
@@ -101,7 +104,7 @@ export async function settleLeague(id: string, now = Date.now(), opts: { retryRe
       endsAt,
       symbols,
       snapshots,
-      entries: entries.map((e) => ({ wallet: e.wallet, picks: e.picks.map((p) => COMPANY_BY_ID[p].symbol), lockedAt: e.locked_at.getTime() })),
+      entries: entries.map((e) => ({ wallet: e.wallet, picks: e.picks.map((p) => COMPANY_BY_ID[p].symbol), lockedAt: e.locked_at.getTime(), demo: Boolean(e.is_bot) })),
     });
 
     if (!out.ok) {

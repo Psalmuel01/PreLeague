@@ -15,6 +15,9 @@ import { LevelCard } from "@/components/league/LevelCard";
 import { Achv, Avatar, Badge, Delta, Medal, PrizeLine } from "@/components/ui/bits";
 import { Icon } from "@/components/ui/Icon";
 import { LeagueTable } from "@/components/ui/LeagueTable";
+import { prizeNetwork } from "@/lib/network";
+
+const MAINNET = prizeNetwork() === "mainnet";
 
 type Tab = "live" | "upcoming" | "completed";
 
@@ -74,7 +77,7 @@ export function LeaguesView() {
             </span>
             <h1 className="h-1 t-page">Leagues</h1>
             <p className="lead" style={{ color: "var(--navy-ink-2)", maxWidth: 560 }}>
-              Draft three private companies, beat the room, win real PreStocks.
+              Draft three private companies, beat the room, win {MAINNET ? "PreStock prizes" : "the prize"}.
             </p>
           </div>
           <LevelCard name={player.displayName} initials={player.initials} xp={history.xp} level={history.level} />

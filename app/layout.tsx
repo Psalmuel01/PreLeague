@@ -14,7 +14,7 @@ const mono = JetBrains_Mono({ variable: "--font-mono", subsets: ["latin"], weigh
 export const metadata: Metadata = {
   title: { default: "PreLeague — Draft tomorrow’s winners", template: "%s · PreLeague" },
   description:
-    "Fantasy sports for private companies. Draft three PreStocks, compete on real market performance, and win actual PreStocks on Solana.",
+    "Fantasy sports for private companies. Draft three PreStocks, compete on real market performance, and win prizes on Solana.",
 };
 
 export const viewport: Viewport = {

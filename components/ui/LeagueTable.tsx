@@ -57,6 +57,7 @@ export function LeagueTable({ rows, mode, compact, limit, expandable = true, col
                 {r.name}
               </span>
               {r.you && <span className="you-tag">You</span>}
+              {r.bot && <span className="demo-tag" title="Seeded demo player, not a real user. Can’t win the prize.">Demo</span>}
             </span>
             {!compact && (
               <span className="lb-picks" role="cell">

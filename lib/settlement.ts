@@ -14,7 +14,8 @@ export type SettleInput = {
   endsAt: number;
   symbols: string[];
   snapshots: Snapshot[];
-  entries: { wallet: string; picks: string[]; lockedAt: number }[];
+  /** `demo` entries (seeded demo players) are ranked but can't win the prize. */
+  entries: { wallet: string; picks: string[]; lockedAt: number; demo?: boolean }[];
 };
 
 export type SettleOutput =
@@ -24,6 +25,7 @@ export type SettleOutput =
       endPrices: Record<string, number>;
       returns: Record<string, number>;
       results: { wallet: string; rank: number; score: number; picks: string[]; pickReturns: number[] }[];
+      /** The prize winner: the best-ranked real (non-demo) entry. */
       winner: string | null;
     }
   | { ok: false; reason: string };
@@ -56,6 +58,7 @@ export function settle(input: SettleInput): SettleOutput {
   const returns: Record<string, number> = {};
   for (const s of input.symbols) returns[s] = endPrices[s] / startPrices[s] - 1;
 
+  const demo = new Set(input.entries.filter((e) => e.demo).map((e) => e.wallet));
   const ranked = rankEntries(
     input.entries.map((e) => ({ id: e.wallet, picks: e.picks, lockedAt: e.lockedAt })),
     returns,
@@ -66,7 +69,7 @@ export function settle(input: SettleInput): SettleOutput {
     endPrices,
     returns,
     results: ranked.map((r) => ({ wallet: r.id, rank: r.rank, score: r.portfolioReturn, picks: r.picks, pickReturns: r.pickReturns })),
-    winner: ranked[0]?.id ?? null,
+    winner: ranked.find((r) => !demo.has(r.id))?.id ?? null,
   };
 }
 

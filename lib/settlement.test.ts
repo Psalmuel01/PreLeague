@@ -49,6 +49,25 @@ describe("settle", () => {
     if (!out.ok) expect(out.reason).toMatch(/end price for C/);
   });
 
+  it("gives the prize to the best real entry when a demo player tops the table", () => {
+    const run = (demoBull: boolean, demoBear = false) =>
+      settle({
+        startsAt: T0,
+        endsAt: T1,
+        symbols: SYMBOLS,
+        snapshots: snaps,
+        entries: [
+          { wallet: "bear", picks: ["B", "C", "D"], lockedAt: T0 - MIN, demo: demoBear },
+          { wallet: "bot:bull", picks: ["A", "C", "D"], lockedAt: T0 - 2 * MIN, demo: demoBull },
+        ],
+      });
+    const out = run(true);
+    expect(out.ok && out.results[0].wallet).toBe("bot:bull"); // still ranked first
+    expect(out.ok && out.winner).toBe("bear");
+    const allDemo = run(true, true);
+    expect(allDemo.ok && allDemo.winner).toBe(null);
+  });
+
   it("settles an empty league with no winner", () => {
     const out = settle({ startsAt: T0, endsAt: T1, symbols: SYMBOLS, snapshots: snaps, entries: [] });
     expect(out.ok && out.winner).toBe(null);

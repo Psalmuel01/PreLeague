@@ -115,7 +115,7 @@ const OPPONENTS: Opponent[] = [
   { id: "marcus", name: "Marcus", initials: "M", avatar: "av-4", picks: ["figureai", "neuralink", "kalshi"], lockedMinsBefore: 4 },
   { id: "ada", name: "Ada", initials: "A", avatar: "av-2", picks: ["spacex", "kalshi", "polymarket"], lockedMinsBefore: 6 },
   { id: "priya", name: "Priya", initials: "P", avatar: "av-6", picks: ["anthropic", "neuralink", "anduril"], lockedMinsBefore: 3 },
-  { id: "8frt", name: "8fRt…a91F", initials: "8f", avatar: "av-8", wallet: "8fRtQx2bLk9mVn4pWz7sYc1dHe3jKa91F", picks: ["kalshi", "polymarket", "anduril"], lockedMinsBefore: 2 },
+  { id: "8frt", name: "Nia", initials: "N", avatar: "av-8", picks: ["kalshi", "polymarket", "anduril"], lockedMinsBefore: 2 },
   { id: "sade", name: "Sade", initials: "S", avatar: "av-1", picks: ["neuralink", "polymarket", "spacex"], lockedMinsBefore: 10 },
   { id: "diego", name: "Diego", initials: "D", avatar: "av-5", picks: ["neuralink", "polymarket", "anduril"], lockedMinsBefore: 1 },
   { id: "jun", name: "Jun", initials: "J", avatar: "av-4", picks: ["polymarket", "neuralink", "kalshi"], lockedMinsBefore: 5 },

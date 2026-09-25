@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "PreLeague",
     short_name: "PreLeague",
-    description: "Fantasy sports for private companies. Draft three PreStocks and win a PreStock prize on Solana.",
+    description: "Fantasy sports for private companies. Draft three PreStocks, compete on real market performance, and win prizes on Solana.",
     start_url: "/",
     display: "standalone",
     background_color: "#0A1440",

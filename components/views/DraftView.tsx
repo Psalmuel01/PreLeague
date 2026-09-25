@@ -15,6 +15,7 @@ import { PageSkeleton, Shell } from "@/components/shell/Shell";
 import { Clock, CoImg, CoLogo, Delta } from "@/components/ui/bits";
 import { Icon } from "@/components/ui/Icon";
 import { Pitch } from "@/components/ui/Pitch";
+import { PRIZE_SUFFIX } from "@/lib/network";
 
 const HELPERS = [
   "Choose three companies to fill your squad.",
@@ -298,7 +299,7 @@ export function DraftView({ slug, edit = false }: { slug: string; edit?: boolean
                 <div className="kv">
                   <span className="k">Prize</span>
                   <span className="v row" style={{ gap: 8 }}>
-                    <CoLogo id={league.prize.company} size="xs" />${league.prize.usd} in {COMPANY_BY_ID[league.prize.company].name} PreStock
+                    <CoLogo id={league.prize.company} size="xs" />${league.prize.usd} in {COMPANY_BY_ID[league.prize.company].name} PreStock{PRIZE_SUFFIX}
                   </span>
                 </div>
               </div>

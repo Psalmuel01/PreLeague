@@ -9,3 +9,6 @@ export function prizeNetwork(): PrizeNetwork {
 export function explorerTx(sig: string, network: PrizeNetwork): string {
   return `https://explorer.solana.com/tx/${sig}${network === "devnet" ? "?cluster=devnet" : ""}`;
 }
+
+/** Appended to prize labels ("$25 in SpaceX PreStock") while prizes are paid in a devnet mock token. */
+export const PRIZE_SUFFIX = prizeNetwork() === "mainnet" ? "" : " (devnet mock)";

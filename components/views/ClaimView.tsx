@@ -30,7 +30,7 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
     );
   }
 
-  const won = view?.status === "completed" && view.you?.rank === 1;
+  const won = view?.status === "completed" && Boolean(view.you) && view.winnerWallet === view.you?.id;
   if (!view || !won) {
     return (
       <Shell>
@@ -121,7 +121,7 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
               <div className="stack" style={{ gap: 6 }}>
                 <span className="eyebrow">Your prize</span>
                 <span className="h-2" style={{ fontSize: "clamp(28px, 4vw, 36px)" }}>
-                  ${view.prize.usd} in {prize.name} PreStock
+                  ${view.prize.usd} in {prize.name} PreStock{mainnet ? "" : " (devnet mock)"}
                 </span>
               </div>
             </div>

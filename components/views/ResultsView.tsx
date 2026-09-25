@@ -16,6 +16,7 @@ import { Achv, Avatar, Badge, CoLogo, Delta, Medal } from "@/components/ui/bits"
 import { Icon } from "@/components/ui/Icon";
 import { LeagueTable } from "@/components/ui/LeagueTable";
 import { Pitch } from "@/components/ui/Pitch";
+import { PRIZE_SUFFIX } from "@/lib/network";
 
 const ORDINAL = ["first", "second", "third"];
 
@@ -103,6 +104,10 @@ export function ResultsView({ slug, roundId }: { slug: string; roundId?: string 
 
   const winner = standings[0];
   const me = view.you;
+  // Demo players can top the table, but the prize goes to the best real player.
+  const prizeWinner = standings.find((s) => s.id === view.winnerWallet) ?? null;
+  const iWon = Boolean(me && prizeWinner?.you);
+  const tops = `${winner.name}${winner.bot ? " (demo)" : ""} ${winner.bot ? "tops the table" : "wins"} with ${pct(winner.portfolioReturn)}`;
   const podium = standings.slice(0, 3);
   const prizeName = COMPANY_BY_ID[league.prize.company].name;
   const earlyBird = view.entry ? view.entry.lockedAt <= round.kickoff - EARLY_BIRD_MS : false;
@@ -114,14 +119,16 @@ export function ResultsView({ slug, roundId }: { slug: string; roundId?: string 
   const lead = me
     ? me.rank === 1
       ? `You win with ${pct(me.portfolioReturn)}. The prize is yours to claim.`
-      : me.rank <= 3
-        ? `${winner.name} wins with ${pct(winner.portfolioReturn)}. You made the podium in ${ORDINAL[me.rank - 1]}.`
-        : `${winner.name} wins with ${pct(winner.portfolioReturn)}. You finished #${me.rank} of ${standings.length}.`
-    : `${winner.name} wins with ${pct(winner.portfolioReturn)}.`;
+      : iWon
+        ? `${tops}. You’re the best real player at #${me.rank}, so the prize is yours to claim.`
+        : me.rank <= 3
+          ? `${tops}. You made the podium in ${ORDINAL[me.rank - 1]}.`
+          : `${tops}. You finished #${me.rank} of ${standings.length}.`
+    : `${tops}.`;
 
   const share = () =>
     shareText(
-      me ? `I finished #${me.rank} in the ${league.name} with ${pct(me.portfolioReturn)}. Think you can beat me?` : `${winner.name} won the ${league.name} with ${pct(winner.portfolioReturn)}.`,
+      me ? `I finished #${me.rank} in the ${league.name} with ${pct(me.portfolioReturn)}. Think you can beat me?` : `${tops} in the ${league.name}.`,
       `/league/${slug}`,
     );
 
@@ -150,10 +157,10 @@ export function ResultsView({ slug, roundId }: { slug: string; roundId?: string 
             <div className="row wrap" style={{ gap: 12 }}>
               <CoLogo id={league.prize.company} style={{ boxShadow: "0 0 0 2px var(--gold-bg)" }} />
               <span style={{ fontWeight: 700 }}>
-                ${league.prize.usd} in {prizeName} PreStock
+                ${league.prize.usd} in {prizeName} PreStock{PRIZE_SUFFIX}
               </span>
               <span className="caption" style={{ fontSize: 14 }}>
-                goes to {winner.you ? "you" : winner.name}
+                {prizeWinner ? `goes to ${prizeWinner.you ? "you" : prizeWinner.name}` : "unclaimed: only demo players entered"}
               </span>
             </div>
           </div>
@@ -171,6 +178,7 @@ export function ResultsView({ slug, roundId }: { slug: string; roundId?: string 
                     <span className="row" style={{ fontWeight: 700, fontSize: 16, paddingTop: 4, gap: 6 }}>
                       <span className="podium-name">{p.name}</span>
                       {p.you && <span className="you-tag">You</span>}
+                      {p.bot && <span className="demo-tag">Demo</span>}
                     </span>
                     <Delta value={p.portfolioReturn} style={{ fontSize: 15 }} />
                   </div>
@@ -190,11 +198,12 @@ export function ResultsView({ slug, roundId }: { slug: string; roundId?: string 
         <div className="container cols-3" style={{ gap: 24, alignItems: "stretch" }}>
           <article className="card stack" style={{ overflow: "hidden" }} aria-labelledby="winsquad-h">
             <div className="card-head">
-              <span id="winsquad-h">Winner’s squad</span>
+              <span id="winsquad-h">{winner.bot ? "Top squad" : "Winner’s squad"}</span>
               <span className="spacer" />
               <span className="row" style={{ gap: 8, fontFamily: "var(--f-ui)", fontSize: 14, fontWeight: 700, letterSpacing: 0, textTransform: "none" }}>
                 <Avatar initials={winner.initials} tone={winner.avatar} size="sm" />
                 {winner.you ? "You" : winner.name}
+                {winner.bot && <span className="demo-tag">Demo</span>}
               </span>
             </div>
             <div style={{ padding: "14px 14px 0" }}>
@@ -214,7 +223,9 @@ export function ResultsView({ slug, roundId }: { slug: string; roundId?: string 
               <div className="row" style={{ gap: 10, paddingTop: 14, borderTop: "1px solid var(--line)", marginTop: "auto" }}>
                 <CoLogo id={league.prize.company} size="sm" />
                 <span style={{ fontSize: 14, fontWeight: 700 }}>
-                  Won ${league.prize.usd} in {prizeName} PreStock
+                  {winner.bot
+                    ? `Demo player: the prize goes to ${prizeWinner ? (prizeWinner.you ? "you" : prizeWinner.name) : "no one"}`
+                    : `Won $${league.prize.usd} in ${prizeName} PreStock${PRIZE_SUFFIX}`}
                 </span>
               </div>
             </div>
@@ -311,7 +322,7 @@ export function ResultsView({ slug, roundId }: { slug: string; roundId?: string 
               </div>
             )}
             <div className="stack" style={{ gap: 10, marginTop: "auto" }}>
-              {me?.rank === 1 ? (
+              {iWon ? (
                 <Link className="btn btn-lime btn-lg btn-block" href={`/league/${slug}/claim?round=${view.id}`}>
                   <Icon name="gift" />
                   {claim?.status === "sent" ? "Prize claimed" : "Claim prize"}

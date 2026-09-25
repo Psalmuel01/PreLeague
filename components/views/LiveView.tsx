@@ -17,6 +17,7 @@ import { Achv, Avatar, Badge, Clock, CoLogo, Delta, Move } from "@/components/ui
 import { Icon } from "@/components/ui/Icon";
 import { LeagueTable } from "@/components/ui/LeagueTable";
 import { Pitch } from "@/components/ui/Pitch";
+import { PRIZE_SUFFIX } from "@/lib/network";
 
 export function LiveView({ slug }: { slug: string }) {
   const league = LEAGUE_BY_SLUG[slug];
@@ -116,7 +117,7 @@ export function LiveView({ slug }: { slug: string }) {
                     <span style={{ fontWeight: 700, fontSize: 16, lineHeight: 1.2 }}>
                       ${league.prize.usd} in {prizeName}
                       <br />
-                      PreStock
+                      PreStock{PRIZE_SUFFIX}
                     </span>
                     <span className="caption">Winner takes it</span>
                   </div>
@@ -297,7 +298,7 @@ export function LiveView({ slug }: { slug: string }) {
                       Race for the prize
                     </span>
                     <span style={{ fontWeight: 700, fontSize: 15 }}>
-                      ${league.prize.usd} in {prizeName} PreStock
+                      ${league.prize.usd} in {prizeName} PreStock{PRIZE_SUFFIX}
                     </span>
                   </div>
                 </div>

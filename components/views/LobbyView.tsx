@@ -12,6 +12,7 @@ import { PageSkeleton, Shell } from "@/components/shell/Shell";
 import { managerCount } from "@/components/league/LeagueFacts";
 import { Achv, Avatar, Badge, Clock, CoImg, CoLogo, Progress } from "@/components/ui/bits";
 import { Icon } from "@/components/ui/Icon";
+import { PRIZE_SUFFIX } from "@/lib/network";
 
 export function LobbyView({ slug }: { slug: string }) {
   const league = LEAGUE_BY_SLUG[slug];
@@ -86,7 +87,7 @@ export function LobbyView({ slug }: { slug: string }) {
               <div className="stack" style={{ gap: 2 }}>
                 <span className="eyebrow">Prize · winner takes it</span>
                 <span className="h-3" style={{ fontSize: 28 }}>
-                  ${league.prize.usd} in {COMPANY_BY_ID[league.prize.company].name} PreStock
+                  ${league.prize.usd} in {COMPANY_BY_ID[league.prize.company].name} PreStock{PRIZE_SUFFIX}
                 </span>
               </div>
             </div>
@@ -221,6 +222,7 @@ export function LobbyView({ slug }: { slug: string }) {
                           {m.you ? player.displayName : m.name}
                         </span>
                         {m.you && <span className="you-tag">You</span>}
+                        {m.bot && <span className="demo-tag">Demo</span>}
                       </li>
                     ))}
                   </ul>
