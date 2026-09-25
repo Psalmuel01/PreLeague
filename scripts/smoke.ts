@@ -83,8 +83,10 @@ async function main() {
   const ok2 = await bob.call(`/api/leagues/${id}/lineup`, { picks: ["polymarket", "neuralink", "anduril"] });
   assert(ok2.status === 200, "Bob locks Polymarket/Neuralink/Anduril");
 
-  const bots = await admin("bots", id);
-  assert(bots.status === 200, "admin seeds demo managers", bots.json);
+  if (process.env.SMOKE_BOTS !== "0") {
+    const bots = await admin("bots", id);
+    assert(bots.status === 200, "admin seeds demo managers", bots.json);
+  }
 
   const start = await admin("start", id);
   assert(start.status === 200, "admin kicks off the round", start.json);
@@ -107,7 +109,7 @@ async function main() {
 
   const final = await alice.call(`/api/leagues/${id}`);
   const fs = final.json.standings as { id: string; rank: number; name: string; portfolioReturn: number }[];
-  assert(fs?.length >= 3 && fs[0].rank === 1, `final table frozen (${fs?.length} managers, winner ${fs?.[0]?.name} ${(fs?.[0]?.portfolioReturn * 100).toFixed(3)}%)`);
+  assert(fs?.length >= 2 && fs[0].rank === 1, `final table frozen (${fs?.length} managers, winner ${fs?.[0]?.name} ${(fs?.[0]?.portfolioReturn * 100).toFixed(3)}%)`);
   assert(final.json.winnerWallet === fs[0].id, "winner recorded on the league");
 
   const me = await alice.call("/api/me");
@@ -117,6 +119,18 @@ async function main() {
   const loser = [alice, bob].find((p) => p.wallet !== final.json.winnerWallet)!;
   const notMine = await loser.call(`/api/leagues/${id}/claim`, {});
   assert(notMine.status === 400, `${loser.name} (not the winner) can't claim`);
+
+  if (process.env.PRIZE_MINT) {
+    const winner = [alice, bob].find((p) => p.wallet === final.json.winnerWallet);
+    if (winner) {
+      const paid = await winner.call(`/api/leagues/${id}/claim`, {});
+      assert(paid.json.status === "sent" && Boolean(paid.json.tx), `${winner.name} claims the prize on devnet (tx ${String(paid.json.tx).slice(0, 12)}…)`, paid.json);
+      const twice = await winner.call(`/api/leagues/${id}/claim`, {});
+      assert(twice.json.status === "sent" && twice.json.tx === paid.json.tx, "second claim returns the same transfer, no double payout");
+    } else {
+      console.log("• winner is a demo manager this round; skipping claim");
+    }
+  }
 
   console.log(failures ? `\n${failures} check(s) failed` : "\nAll checks passed");
   process.exit(failures ? 1 : 0);
