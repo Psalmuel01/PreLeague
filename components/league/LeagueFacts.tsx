@@ -2,14 +2,12 @@
 
 import Link from "next/link";
 import type { League, RoundState } from "@/lib/leagues";
-import { opponentsFor } from "@/lib/leagues";
 import { kickoffLabel } from "@/lib/format";
 import { useGame } from "@/components/providers/GameProvider";
 import { Badge, Clock, LogoStack, PrizeLine, Progress } from "@/components/ui/bits";
 import { Icon } from "@/components/ui/Icon";
 
-export function managerCount(league: League, joined: boolean) {
-  const count = league.fullOverride ? league.capacity : Math.min(league.capacity, opponentsFor(league).length + (joined ? 1 : 0));
+export function managerCount(league: League, count: number) {
   return { count, capacity: league.capacity, full: count >= league.capacity };
 }
 
@@ -21,9 +19,8 @@ export type LeagueAction = {
   icon?: "chart" | "chevronRight";
 };
 
-export function leagueAction(league: League, round: RoundState, joined: boolean, now: number): LeagueAction {
+export function leagueAction(league: League, round: RoundState, joined: boolean, full: boolean, now: number): LeagueAction {
   const base = `/league/${league.slug}`;
-  const { full } = managerCount(league, joined);
   if (round.phase === "live") {
     return {
       label: "Watch live",
@@ -53,19 +50,22 @@ export function LeagueFacts({
   eyebrowBadges,
   highlight,
   bare,
+  managers,
+  joined,
 }: {
   league: League;
   round: RoundState;
+  managers: number;
+  joined: boolean;
   variant: "home" | "list";
   eyebrowBadges?: React.ReactNode;
   highlight?: "navy";
   /** Render without card chrome, for nesting inside another card. */
   bare?: boolean;
 }) {
-  const { entries, now } = useGame();
-  const joined = Boolean(entries[`${league.slug}@${round.kickoff}`]);
-  const { count, capacity, full } = managerCount(league, joined);
-  const action = leagueAction(league, round, joined, now);
+  const { now } = useGame();
+  const { count, capacity, full } = managerCount(league, managers);
+  const action = leagueAction(league, round, joined, full, now);
   const durationMin = league.schedule.durationMs / 60_000;
 
   const cols =

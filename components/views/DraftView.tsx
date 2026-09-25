@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { COMPANY_BY_ID, type CompanyId } from "@/lib/companies";
-import { LEAGUE_BY_SLUG, joinableRound, roundKey } from "@/lib/leagues";
+import { LEAGUE_BY_SLUG } from "@/lib/leagues";
+import { useRound } from "@/lib/hooks/useRound";
 import { usd } from "@/lib/format";
 import { usePlayer } from "@/lib/hooks/usePlayer";
 import { useGame } from "@/components/providers/GameProvider";
@@ -22,26 +23,27 @@ const HELPERS = [
   "Squad full — remove a pick to swap.",
 ];
 
-export function DraftView({ slug }: { slug: string }) {
+export function DraftView({ slug, edit = false }: { slug: string; edit?: boolean }) {
   const league = LEAGUE_BY_SLUG[slug];
   const router = useRouter();
   const game = useGame();
-  const { prices, marks, simulated } = usePrices();
+  const { prices, marks } = usePrices();
   const player = usePlayer();
+  const { view, loaded } = useRound(league, "next");
   const [trayOpen, setTrayOpen] = useState(false);
   const [locking, setLocking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const round = game.ready ? joinableRound(league, game.now) : null;
-  const key = round ? roundKey(league, round.kickoff) : "";
-  const entry = key ? game.entries[key] : undefined;
+  const round = view?.round ?? null;
+  const key = view?.id ?? "";
+  const entry = view?.entry ?? null;
 
-  // Already locked for this round: the lineup can't change, go to the team sheet.
+  // Already locked for this round: go to the team sheet (unless editing before kick-off).
   useEffect(() => {
-    if (entry) router.replace(`/league/${slug}/locked`);
-  }, [entry, router, slug]);
+    if (entry && !edit) router.replace(`/league/${slug}/locked`);
+  }, [entry, edit, router, slug]);
 
-  if (!game.ready || entry) {
+  if (!game.ready || !loaded || (entry && !edit)) {
     return (
       <Shell tabs={false}>
         <PageSkeleton height={268} />
@@ -49,7 +51,7 @@ export function DraftView({ slug }: { slug: string }) {
     );
   }
 
-  if (!round) {
+  if (!round || !view) {
     return (
       <Shell>
         <section className="band band-pad">
@@ -67,7 +69,7 @@ export function DraftView({ slug }: { slug: string }) {
     );
   }
 
-  const picks = game.drafts[key] ?? [];
+  const picks = game.drafts[key] ?? entry?.picks ?? [];
   const n = picks.length;
   const full = n >= 3;
   const toggle = (id: CompanyId) => {
@@ -78,38 +80,47 @@ export function DraftView({ slug }: { slug: string }) {
   const lockHint = full ? "Free entry · You never buy what you draft." : `Pick ${3 - n} more to lock your lineup.`;
 
   async function lock() {
-    if (!full || locking || !round) return;
+    if (!full || locking) return;
     setError(null);
-    if (!player.canPlay) {
-      player.connect();
+    if (!player.signedIn) {
+      // Connect (if needed) and sign in; the player taps Lock again once signed in.
+      await player.signIn();
       return;
     }
-    const lockedAt = game.now;
-    const message = [
-      "PreLeague lineup",
-      `League: ${league.name} · Round ${round.round}`,
-      `Picks: ${picks.map((p) => COMPANY_BY_ID[p].symbol).join(", ")}`,
-      `Wallet: ${player.address ?? "guest (demo)"}`,
-      `Timestamp: ${new Date(lockedAt).toISOString()}`,
-    ].join("\n");
     setLocking(true);
     try {
-      const signature = player.connected ? await player.sign(message) : null;
-      game.lockEntry(key, { picks, lockedAt, wallet: player.address ?? undefined, signature: signature ?? undefined, message });
+      const res = await fetch(`/api/leagues/${key}/lineup`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ picks }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Couldn’t lock your lineup");
+      await view!.refresh();
       router.push(`/league/${slug}/locked`);
-    } catch {
-      setError("Signature request was declined. Your picks are saved — lock again when you’re ready.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
       setLocking(false);
     }
   }
 
   const slots = [0, 1, 2].map((i) => ({ id: picks[i] ?? null, value: picks[i] ? "33.3%" : undefined }));
-  const lockLabel = !player.canPlay ? "Connect wallet to lock" : locking ? "Check your wallet…" : "Lock lineup";
+  const lockLabel = player.signingIn
+    ? "Check your wallet…"
+    : !player.connected && !player.signedIn
+      ? "Connect wallet to lock"
+      : !player.signedIn
+        ? "Sign in to lock"
+        : locking
+          ? "Locking…"
+          : entry
+            ? "Save lineup"
+            : "Lock lineup";
 
   const lockButton = (block = true) =>
     full ? (
-      <button type="button" className={`btn btn-lime btn-lg ${block ? "btn-block" : ""}`} onClick={lock} disabled={locking}>
-        <Icon name={player.canPlay ? "lock" : "wallet"} strokeWidth={2.4} />
+      <button type="button" className={`btn btn-lime btn-lg ${block ? "btn-block" : ""}`} onClick={lock} disabled={locking || player.signingIn}>
+        <Icon name={player.signedIn ? "lock" : "wallet"} strokeWidth={2.4} />
         {lockLabel}
       </button>
     ) : (
@@ -207,7 +218,7 @@ export function DraftView({ slug }: { slug: string }) {
                         {c.mono}
                       </span>
                     </span>
-                    {price && mark && !simulated ? (
+                    {price && mark ? (
                       <span className="stack" style={{ alignItems: "flex-end", gap: 4 }} title="Token price premium over the PreStocks mark price">
                         <span className="cd-label" style={{ fontSize: 12 }}>
                           vs mark
@@ -297,15 +308,15 @@ export function DraftView({ slug }: { slug: string }) {
                 <Icon name="lock" size="sm" />
                 Your squad can’t be changed after the deadline.
               </div>
-              {error && (
+              {(error ?? player.error) && (
                 <div className="banner banner-error" role="alert" style={{ fontSize: 13.5 }}>
                   <Icon name="warning" size="sm" />
-                  {error}
+                  {error ?? player.error}
                 </div>
               )}
               <div className="stack" style={{ gap: 8 }}>
                 {lockButton()}
-                <span className="caption center">{player.connected ? lockHint : player.canPlay ? "Demo mode · playing as guest" : "You’ll sign a message to lock. No transaction, no fee."}</span>
+                <span className="caption center">{player.signedIn ? lockHint : "You’ll sign a message to prove it’s your wallet. No transaction, no fee."}</span>
               </div>
             </div>
           </aside>
@@ -402,14 +413,14 @@ export function DraftView({ slug }: { slug: string }) {
               <Icon name="lock" size="sm" />
               <span>Your squad can’t be changed after the league starts.</span>
             </div>
-            {error && (
+            {(error ?? player.error) && (
               <div className="banner banner-error" role="alert" style={{ fontSize: 13.5 }}>
                 <Icon name="warning" size="sm" />
-                {error}
+                {error ?? player.error}
               </div>
             )}
             {lockButton()}
-            {!player.connected && <span className="caption center">{player.canPlay ? "Demo mode · playing as guest" : "You’ll sign a message to lock. No transaction, no fee."}</span>}
+            {!player.signedIn && <span className="caption center">You’ll sign a message to prove it’s your wallet. No transaction, no fee.</span>}
           </section>
         </>
       )}

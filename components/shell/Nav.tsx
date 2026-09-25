@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { PhantomWalletName } from "@solana/wallet-adapter-phantom";
 import { DEFAULT_LEAGUE } from "@/lib/leagues";
 import { usePlayer } from "@/lib/hooks/usePlayer";
 import { useGame } from "@/components/providers/GameProvider";
@@ -88,10 +90,20 @@ export function WalletButton({ compact }: { compact?: boolean }) {
   const player = usePlayer();
   const { ready } = useGame();
   if (!ready) return <span className="wallet-btn disconnected" style={{ visibility: "hidden" }}>Connect wallet</span>;
-  if (!player.connected) {
+  if (!player.signedIn) {
+    // One tap: connect Phantom, then sign the sign-in message.
+    const label = player.signingIn ? "Check wallet…" : player.connected ? "Sign in" : "Connect Phantom";
     return (
-      <button className={compact ? "btn btn-lime btn-sm" : "wallet-btn disconnected"} style={compact ? { height: 44 } : undefined} type="button" onClick={player.connect}>
-        Connect wallet
+      <button
+        className={compact ? "btn btn-lime btn-sm" : "wallet-btn disconnected"}
+        style={compact ? { height: 44, gap: 8 } : { gap: 8 }}
+        type="button"
+        onClick={() => player.signIn()}
+        disabled={player.signingIn}
+        title={player.error ?? undefined}
+      >
+        {!player.connected && <PhantomMark />}
+        {label}
       </button>
     );
   }
@@ -101,6 +113,14 @@ export function WalletButton({ compact }: { compact?: boolean }) {
       <Avatar initials={player.initials} tone="av-you" size="sm" />
     </Link>
   );
+}
+
+/** Phantom's own icon, as shipped with its wallet adapter. */
+function PhantomMark() {
+  const { wallets } = useWallet();
+  const icon = wallets.find((w) => w.adapter.name === PhantomWalletName)?.adapter.icon;
+  // eslint-disable-next-line @next/next/no-img-element -- data URI from the adapter
+  return icon ? <img src={icon} alt="" width={18} height={18} style={{ borderRadius: 5 }} /> : null;
 }
 
 export function Footer() {
@@ -113,7 +133,7 @@ export function Footer() {
           </span>
         </span>
         <p className="caption" style={{ maxWidth: 560, fontSize: 13 }}>
-          League squads are virtual — you never buy the companies you draft. Prizes are paid in real PreStocks to your connected wallet. Prices from the PreStocks API.
+          League squads are virtual — you never buy the companies you draft. Hackathon prizes are paid in a mock PreStock token on Solana devnet. Prices from the PreStocks API.
         </p>
         <span className="spacer" />
         <nav style={{ display: "flex", gap: 24, fontSize: 14 }} aria-label="Footer">

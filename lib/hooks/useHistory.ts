@@ -1,111 +1,55 @@
 "use client";
 
 import { useMemo } from "react";
-import { LEAGUE_BY_SLUG, roundAt, type League, type RoundState } from "@/lib/leagues";
-import { EARLY_BIRD_MS, companyReturns, levelFor, managersFor, roundXp, standingsFor, type Ranked } from "@/lib/standings";
-import { COMPANY_BY_ID } from "@/lib/companies";
-import { endPrice, startPrice } from "@/lib/scoring";
-import { useGame, type Entry } from "@/components/providers/GameProvider";
-import { usePrices } from "@/components/providers/PriceProvider";
+import type { HistoryJSON } from "@/lib/api-types";
+import { LEAGUE_BY_SLUG, type League } from "@/lib/leagues";
+import { EARLY_BIRD_MS, levelFor, roundXp } from "@/lib/standings";
+import { useSession } from "@/components/providers/SessionProvider";
 
-export type HistoryItem = {
-  key: string;
-  league: League;
-  round: RoundState;
-  entry: Entry;
-  /** Null when final prices weren't captured, so the round can't be scored. */
-  standings: Ranked[] | null;
-  you: Ranked | null;
-  winner: Ranked | null;
-  simulated: boolean;
-  xp: number;
-  earlyBird: boolean;
-};
+export type HistoryItem = HistoryJSON & { league: League; xp: number; earlyBird: boolean; finished: boolean };
 
-export function useHistory(you: { name: string; initials: string }) {
-  const { entries, prices, claims, now, ready } = useGame();
-  const { history: snapshots, priceAt, simulated: simOn } = usePrices();
-
+/** Your leagues from the server, with XP, level, stats and achievements derived from results. */
+export function useHistory() {
+  const session = useSession();
   return useMemo(() => {
-    const items: HistoryItem[] = [];
-    const active: { key: string; league: League; round: RoundState; entry: Entry }[] = [];
-    if (!ready) return null;
-
-    for (const [key, entry] of Object.entries(entries)) {
-      const [slug, ko] = key.split("@");
-      const league = LEAGUE_BY_SLUG[slug];
-      if (!league) continue;
-      const round = roundAt(league, Number(ko), now);
-      if (round.phase !== "final") {
-        active.push({ key, league, round, entry });
-        continue;
-      }
-      const real = prices[key];
-      const sim = prices[`${key}:sim`];
-      // Stored boundary prices first; otherwise derive them the same way the round page would.
-      const derive = (useSim: boolean) => {
-        const start: Record<string, number> = {};
-        const end: Record<string, number> = {};
-        for (const id of league.pool) {
-          const sym = COMPANY_BY_ID[id].symbol;
-          try {
-            start[sym] = useSim ? priceAt(sym, round.kickoff) ?? NaN : startPrice(snapshots, sym, round.kickoff);
-            end[sym] = useSim ? priceAt(sym, round.endsAt) ?? NaN : endPrice(snapshots, sym, round.endsAt);
-          } catch {
-            return undefined;
-          }
-          if (!(start[sym] > 0 && end[sym] > 0)) return undefined;
-        }
-        return { start, end };
-      };
-      const bp =
-        real?.start && real?.end ? real : sim?.start && sim?.end ? sim : simOn ? derive(true) : derive(false);
-      const standings = bp ? standingsFor(managersFor(league, round.kickoff, entry, you), companyReturns(league, bp.start, bp.end)) : null;
-      const mine = standings?.find((s) => s.you) ?? null;
-      const earlyBird = entry.lockedAt <= round.kickoff - EARLY_BIRD_MS;
-      items.push({
-        key,
-        league,
-        round,
-        entry,
-        standings,
-        you: mine,
-        winner: standings?.[0] ?? null,
-        simulated: Boolean(bp) && bp !== real && (bp === sim || simOn),
-        earlyBird,
-        xp: roundXp(mine?.rank ?? null, earlyBird).total,
+    if (!session.loaded) return null;
+    const all: HistoryItem[] = session.history
+      .filter((h) => LEAGUE_BY_SLUG[h.series])
+      .map((h) => {
+        const earlyBird = h.lockedAt <= h.startsAt - EARLY_BIRD_MS;
+        const finished = ["completed", "review_required", "cancelled"].includes(h.status);
+        return {
+          ...h,
+          league: LEAGUE_BY_SLUG[h.series],
+          earlyBird,
+          finished,
+          xp: h.status === "completed" ? roundXp(h.rank, earlyBird).total : 0,
+        };
       });
-    }
-
-    items.sort((a, b) => b.round.kickoff - a.round.kickoff);
-    active.sort((a, b) => a.round.kickoff - b.round.kickoff);
-
-    const scored = items.filter((i) => i.you);
-    const wins = scored.filter((i) => i.you!.rank === 1);
+    const items = all.filter((h) => h.finished);
+    const active = all.filter((h) => !h.finished).sort((a, b) => a.startsAt - b.startsAt);
+    const scored = items.filter((i) => i.rank !== null && i.score !== null);
+    const wins = scored.filter((i) => i.rank === 1);
     const xp = items.reduce((s, i) => s + i.xp, 0);
-    const prizesUsd = wins.reduce((s, i) => s + i.league.prize.usd, 0);
-    const claimedUsd = wins.filter((i) => claims[i.key]?.status === "done").reduce((s, i) => s + i.league.prize.usd, 0);
-
     return {
       items,
       active,
       stats: {
-        leagues: items.length + active.length,
+        leagues: all.length,
         wins: wins.length,
-        bestFinish: scored.length ? Math.min(...scored.map((i) => i.you!.rank)) : null,
-        avgReturn: scored.length ? scored.reduce((s, i) => s + i.you!.portfolioReturn, 0) / scored.length : null,
-        prizesUsd,
-        claimedUsd,
+        bestFinish: scored.length ? Math.min(...scored.map((i) => i.rank!)) : null,
+        avgReturn: scored.length ? scored.reduce((s, i) => s + i.score!, 0) / scored.length : null,
+        prizesUsd: wins.reduce((s, i) => s + i.prize.usd, 0),
       },
       xp,
       level: levelFor(xp),
       achievements: [
         { id: "winner", title: "Round winner", caption: "Won a league", icon: "trophy" as const, tone: "gold" as const, done: wins.length > 0 },
-        { id: "hattrick", title: "Hat-trick", caption: "All 3 picks green", icon: null, tone: undefined, done: scored.some((i) => i.you!.pickReturns.every((r) => r > 0)) },
-        { id: "podium", title: "Podium finish", caption: "Finished top 3", icon: "chart" as const, tone: "blue" as const, done: scored.some((i) => i.you!.rank <= 3) },
-        { id: "early", title: "Early bird", caption: "Locked 5 min before deadline", icon: "clock" as const, tone: undefined, done: Object.entries(entries).some(([k, e]) => e.lockedAt <= Number(k.split("@")[1]) - EARLY_BIRD_MS) },
-        { id: "streak", title: "5-round streak", caption: "Play 5 rounds in a row", icon: "lock" as const, tone: undefined, done: items.length + active.length >= 5 },
+        { id: "hattrick", title: "Hat-trick", caption: "All 3 picks green", icon: null, tone: undefined, done: scored.some((i) => i.pickReturns?.every((r) => r > 0)) },
+        { id: "podium", title: "Podium finish", caption: "Finished top 3", icon: "chart" as const, tone: "blue" as const, done: scored.some((i) => i.rank! <= 3) },
+        { id: "early", title: "Early bird", caption: "Locked 5 min before deadline", icon: "clock" as const, tone: undefined, done: all.some((i) => i.earlyBird) },
+        { id: "streak", title: "5-round streak", caption: "Play 5 rounds", icon: "lock" as const, tone: undefined, done: all.length >= 5 },
       ],
     };
-  }, [entries, prices, claims, now, ready, you, snapshots, priceAt, simOn]);
+  }, [session.loaded, session.history]);
 }

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { COMPANY_BY_ID } from "@/lib/companies";
-import { LEAGUE_BY_SLUG, currentRound, joinableRound, opponentsFor, roundKey } from "@/lib/leagues";
+import { LEAGUE_BY_SLUG } from "@/lib/leagues";
+import { useRound } from "@/lib/hooks/useRound";
 import { EARLY_BIRD_MS } from "@/lib/standings";
 import { usePlayer } from "@/lib/hooks/usePlayer";
 import { useGame } from "@/components/providers/GameProvider";
@@ -14,11 +15,13 @@ import { Icon } from "@/components/ui/Icon";
 
 export function LobbyView({ slug }: { slug: string }) {
   const league = LEAGUE_BY_SLUG[slug];
-  const { ready, now, entries } = useGame();
+  const { ready } = useGame();
   const player = usePlayer();
+  const { view: next, ids, loaded } = useRound(league, "next");
+  const { view: inPlayView } = useRound(league, "live");
   const [scoringOpen, setScoringOpen] = useState(false);
 
-  if (!ready) {
+  if (!ready || !loaded) {
     return (
       <Shell>
         <PageSkeleton height={372} />
@@ -26,11 +29,11 @@ export function LobbyView({ slug }: { slug: string }) {
     );
   }
 
-  const inPlay = currentRound(league, now);
-  const round = joinableRound(league, now);
-  const joined = round ? Boolean(entries[roundKey(league, round.kickoff)]) : false;
-  const { count, capacity, full } = managerCount(league, joined);
-  const opponents = opponentsFor(league);
+  const round = next?.round ?? null;
+  const inPlay = inPlayView?.round ?? { round: round?.round ?? 0, phase: ids.last ? ("final" as const) : ("upcoming" as const) };
+  const joined = Boolean(next?.entry);
+  const managers = next?.managers ?? [];
+  const { count, capacity, full } = managerCount(league, managers.length);
   const base = `/league/${league.slug}`;
   const durationMin = league.schedule.durationMs / 60_000;
 
@@ -209,23 +212,22 @@ export function LobbyView({ slug }: { slug: string }) {
               </div>
               <div className="stack" style={{ padding: "18px 20px 20px", gap: 16 }}>
                 <Progress value={count / capacity} tone={full ? "full" : undefined} />
-                <ul style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "14px 16px" }}>
-                  {joined && (
-                    <li className="row" style={{ gap: 10, fontWeight: 700, fontSize: 14 }}>
-                      <Avatar initials={player.initials} tone="av-you" />
-                      {player.displayName}
-                      <span className="you-tag">You</span>
-                    </li>
-                  )}
-                  {opponents.slice(0, joined ? 7 : 8).map((o) => (
-                    <li key={o.id} className="row" style={{ gap: 10, fontWeight: o.wallet ? 500 : 700, fontSize: 14, minWidth: 0 }}>
-                      <Avatar initials={o.initials} tone={o.avatar} />
-                      <span className={o.wallet ? "mono" : ""} style={{ fontSize: o.wallet ? 12.5 : undefined, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {o.name}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                {managers.length === 0 ? (
+                  <p className="small muted">No squads yet. Be the first to draft.</p>
+                ) : (
+                  <ul style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "14px 16px" }}>
+                    {[...managers].sort((a, b) => Number(b.you) - Number(a.you)).slice(0, 8).map((m) => (
+                      <li key={m.id} className="row" style={{ gap: 10, fontWeight: m.mono ? 500 : 700, fontSize: 14, minWidth: 0 }}>
+                        <Avatar initials={m.initials} tone={m.avatar} />
+                        <span className={m.mono ? "mono" : ""} style={{ fontSize: m.mono ? 12.5 : undefined, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {m.you ? player.displayName : m.name}
+                        </span>
+                        {m.you && <span className="you-tag">You</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {managers.length > 8 && <span className="caption">+ {managers.length - 8} more</span>}
                 <span className="caption">
                   {full ? "All spots taken." : `${capacity - count} spots left. ${joined ? "You’re in." : "Draft a squad to take one."}`}
                 </span>

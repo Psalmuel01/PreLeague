@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { COMPANIES, type CompanyId } from "@/lib/companies";
-import { DEFAULT_LEAGUE, joinableRound } from "@/lib/leagues";
-import { useRound } from "@/lib/hooks/useRound";
-import { usePlayer } from "@/lib/hooks/usePlayer";
+import { DEFAULT_LEAGUE } from "@/lib/leagues";
+import { toRoundState, useRound } from "@/lib/hooks/useRound";
+import { useLeagues } from "@/lib/hooks/useLeagues";
 import { useGame } from "@/components/providers/GameProvider";
 import { PageSkeleton, Shell } from "@/components/shell/Shell";
 import { LeagueFacts } from "@/components/league/LeagueFacts";
@@ -19,10 +19,9 @@ const EXAMPLE: CompanyId[] = ["openai", "anthropic", "spacex"];
 export function HomeView() {
   const league = DEFAULT_LEAGUE;
   const { ready, now } = useGame();
-  const player = usePlayer();
-  const youOpts = { youName: player.displayName, youInitials: player.initials };
-  const current = useRound(league, "current", youOpts);
-  const last = useRound(league, "last-final", youOpts);
+  const { view: current } = useRound(league, "current");
+  const { view: last } = useRound(league, "last");
+  const series = useLeagues()?.find((x) => x.slug === league.slug);
 
   if (!ready || !current) {
     return (
@@ -53,7 +52,12 @@ export function HomeView() {
     squad = { title: "Example squad", slots: EXAMPLE.map((id) => ({ id, value: "33.3%" })) };
   }
 
-  const nextRound = joinableRound(league, now) ?? round;
+  // The card offers the next open round unless you're already playing the live one.
+  const next = series?.next;
+  const card =
+    (live && current.entry) || !next
+      ? { round, managers: current.managers.length, joined: Boolean(current.entry) }
+      : { round: toRoundState(next, now), managers: next.managers, joined: next.joined };
 
   return (
     <Shell>
@@ -96,7 +100,7 @@ export function HomeView() {
 
       <section className="overlap">
         <div className="container">
-          <LeagueFacts league={league} round={live && current.entry ? round : nextRound} variant="home" />
+          <LeagueFacts league={league} round={card.round} managers={card.managers} joined={card.joined} variant="home" />
         </div>
       </section>
 
@@ -178,7 +182,7 @@ export function HomeView() {
                 <Icon name="clock" size="lg" style={{ color: "var(--ink-3)" }} />
                 <p className="title">No finished round on record yet</p>
                 <p className="small muted">
-                  The table fills once Round {nextRound.round} kicks off and prices start moving.
+                  The table fills once Round {card.round.round} kicks off and prices start moving.
                 </p>
               </div>
             )}

@@ -1,25 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { COMPANY_BY_ID } from "@/lib/companies";
 import { dateLabel, pct, shortAddress } from "@/lib/format";
 import { useHistory } from "@/lib/hooks/useHistory";
 import { usePlayer } from "@/lib/hooks/usePlayer";
-import { useRound } from "@/lib/hooks/useRound";
+import { toRoundState, useRound } from "@/lib/hooks/useRound";
 import { useGame } from "@/components/providers/GameProvider";
 import { PageSkeleton, Shell } from "@/components/shell/Shell";
 import { Badge, Clock, CoLogo, Delta, Medal, Move } from "@/components/ui/bits";
 import { Icon } from "@/components/ui/Icon";
 import { Pitch } from "@/components/ui/Pitch";
-import type { League, RoundState } from "@/lib/leagues";
-import type { Entry } from "@/components/providers/GameProvider";
+import { useSession } from "@/components/providers/SessionProvider";
+import type { HistoryItem } from "@/lib/hooks/useHistory";
 
 export function ProfileView() {
   const game = useGame();
   const player = usePlayer();
-  const you = useMemo(() => ({ name: player.displayName, initials: player.initials }), [player.displayName, player.initials]);
-  const history = useHistory(you);
+  const session = useSession();
+  const history = useHistory();
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [copied, setCopied] = useState(false);
@@ -66,7 +66,7 @@ export function ProfileView() {
                   style={{ gap: 8 }}
                   onSubmit={(e) => {
                     e.preventDefault();
-                    game.setName(draftName);
+                    void session.setDisplayName(draftName);
                     setEditing(false);
                   }}
                 >
@@ -84,7 +84,7 @@ export function ProfileView() {
                 </h1>
               )}
               <div className="row wrap" style={{ gap: 4 }}>
-                {player.address ? (
+                {player.signedIn && player.address ? (
                   <>
                     <span className="mono" style={{ fontSize: 14, color: "var(--navy-ink-2)" }}>
                       {shortAddress(player.address)}
@@ -94,26 +94,26 @@ export function ProfileView() {
                     </button>
                   </>
                 ) : (
-                  <button className="btn btn-lime btn-sm" type="button" onClick={player.connect}>
-                    Connect wallet
+                  <button className="btn btn-lime btn-sm" type="button" onClick={() => player.signIn()} disabled={player.signingIn}>
+                    {player.signingIn ? "Check your wallet…" : player.connected ? "Sign in" : "Connect wallet"}
                   </button>
                 )}
-                {!editing && (
+                {!editing && player.signedIn && (
                   <button
                     className="btn btn-ghost-night btn-sm"
                     type="button"
                     style={{ marginLeft: 12 }}
                     onClick={() => {
-                      setDraftName(game.name ?? "");
+                      setDraftName(session.displayName ?? "");
                       setEditing(true);
                     }}
                   >
                     Edit name
                   </button>
                 )}
-                {player.connected && (
-                  <button className="btn btn-ghost-night btn-sm" type="button" style={{ marginLeft: 8 }} onClick={() => player.disconnect()}>
-                    Disconnect
+                {player.signedIn && (
+                  <button className="btn btn-ghost-night btn-sm" type="button" style={{ marginLeft: 8 }} onClick={() => player.signOut()}>
+                    Sign out
                   </button>
                 )}
               </div>
@@ -211,19 +211,19 @@ export function ProfileView() {
                       <span style={{ textAlign: "right" }}>Return</span>
                     </div>
                     {items.map((it) => (
-                      <Link key={it.key} className="lb-row" href={`/league/${it.league.slug}/results?round=${it.round.kickoff}`} style={{ minHeight: 78, color: "var(--ink)" }}>
-                        <span className="lb-rank">{it.you ? it.you.rank <= 3 ? <Medal rank={it.you.rank} /> : <span style={{ paddingLeft: 4 }}>{it.you.rank}</span> : "—"}</span>
+                      <Link key={it.leagueId} className="lb-row" href={`/league/${it.league.slug}/results?round=${it.leagueId}`} style={{ minHeight: 78, color: "var(--ink)" }}>
+                        <span className="lb-rank">{it.rank ? it.rank <= 3 ? <Medal rank={it.rank} /> : <span style={{ paddingLeft: 4 }}>{it.rank}</span> : "—"}</span>
                         <div className="stack" style={{ gap: 2, minWidth: 0 }}>
                           <span className="title" style={{ fontSize: 16 }}>
                             {it.league.name}
                           </span>
                           <span className="caption">
-                            Round {it.round.round} · {dateLabel(it.round.kickoff)}
-                            {it.simulated ? " · simulated" : ""}
+                            Round {it.round} · {dateLabel(it.startsAt)}
+                            {it.status !== "completed" ? (it.status === "cancelled" ? " · cancelled" : " · under review") : ""}
                           </span>
                         </div>
                         <span className="hide-sm">
-                          {it.you?.rank === 1 ? (
+                          {it.rank === 1 ? (
                             <span className="badge badge-won" style={{ height: 32, padding: "0 12px 0 5px" }}>
                               <CoLogo id={it.league.prize.company} size="xs" />
                               Won ${it.league.prize.usd}
@@ -233,7 +233,7 @@ export function ProfileView() {
                             </span>
                           ) : null}
                         </span>
-                        <span className="lb-return">{it.you ? <Delta value={it.you.portfolioReturn} /> : <span className="caption">Not scored</span>}</span>
+                        <span className="lb-return">{it.score !== null ? <Delta value={it.score} /> : <span className="caption">Not scored</span>}</span>
                       </Link>
                     ))}
                   </div>
@@ -266,7 +266,7 @@ export function ProfileView() {
               </div>
             )}
             {history.active.map((a) => (
-              <ActiveCard key={a.key} league={a.league} round={a.round} entry={a.entry} />
+              <ActiveCard key={a.leagueId} item={a} />
             ))}
           </aside>
         </div>
@@ -286,10 +286,12 @@ function Stat({ k, v, hero, lime }: { k: string; v: string; hero?: boolean; lime
   );
 }
 
-function ActiveCard({ league, round, entry }: { league: League; round: RoundState; entry: Entry }) {
-  const player = usePlayer();
-  const view = useRound(league, round.kickoff, { youName: player.displayName, youInitials: player.initials });
-  const r = view?.round ?? round;
+function ActiveCard({ item }: { item: HistoryItem }) {
+  const { league } = item;
+  const { now } = useGame();
+  const { view } = useRound(league, item.leagueId);
+  const entry = { picks: item.picks };
+  const r = view?.round ?? toRoundState(item, now);
   const live = r.phase === "live";
   const you = view?.you;
   if (!live) {

@@ -3,148 +3,55 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { CompanyId } from "@/lib/companies";
 
-// Player-side state for the MVP, persisted to localStorage. Lineups are also
-// signed with the player's wallet; a backend (Supabase `entries`) replaces this
-// store once it exists.
+// Client-only state: a 1-second clock for countdowns, and draft picks that
+// haven't been locked yet (kept across reloads). Everything authoritative —
+// leagues, lineups, prices, results — lives on the server.
 
-export type Entry = {
-  picks: CompanyId[];
-  lockedAt: number;
-  wallet?: string;
-  signature?: string;
-  message?: string;
-};
-
-/** Boundary prices captured for a round (keyed by symbol). */
-export type RoundPrices = {
-  start?: Record<string, number>;
-  startAt?: number;
-  /** Kick-off price was captured after kick-off (viewer opened the round late). */
-  startLate?: boolean;
-  end?: Record<string, number>;
-  endAt?: number;
-};
-
-export type Claim = { status: "pending" | "done" | "failed"; at: number; tx?: string; simulated?: boolean };
-
-export type Settings = {
-  /** Show the demo panel. */
-  demo: boolean;
-  /** Use simulated prices instead of the PreStocks feed. */
-  simulated: boolean;
-  /** Demo clock offset in ms, to jump between round phases. */
-  timeOffset: number;
-};
-
-type State = {
-  entries: Record<string, Entry>;
-  drafts: Record<string, CompanyId[]>;
-  prices: Record<string, RoundPrices>;
-  claims: Record<string, Claim>;
-  name?: string;
-  settings: Settings;
-};
-
-const STORAGE_KEY = "preleague:v1";
-const EMPTY: State = {
-  entries: {},
-  drafts: {},
-  prices: {},
-  claims: {},
-  settings: { demo: false, simulated: false, timeOffset: 0 },
-};
-
-type GameContext = State & {
+type GameContext = {
   ready: boolean;
   now: number;
-  setDraft: (key: string, picks: CompanyId[]) => void;
-  lockEntry: (key: string, entry: Entry) => void;
-  setRoundPrices: (key: string, patch: RoundPrices) => void;
-  setClaim: (key: string, claim: Claim) => void;
-  setName: (name: string) => void;
-  updateSettings: (patch: Partial<Settings>) => void;
-  resetAll: () => void;
+  drafts: Record<string, CompanyId[]>;
+  setDraft: (leagueId: string, picks: CompanyId[]) => void;
 };
 
+const STORAGE_KEY = "preleague:drafts:v2";
 const Ctx = createContext<GameContext | null>(null);
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<State>(EMPTY);
   const [ready, setReady] = useState(false);
-  const [wallNow, setWallNow] = useState(0);
+  const [now, setNow] = useState(0);
+  const [drafts, setDrafts] = useState<Record<string, CompanyId[]>>({});
 
-  // Hydrate from localStorage after mount (server render has no storage), then
-  // start the 1s clock. setState here is intentional: storage is the external system.
+  // Hydrate from localStorage after mount, then start the clock.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<State>;
-        setState({ ...EMPTY, ...parsed, settings: { ...EMPTY.settings, ...parsed.settings } });
-      }
+      if (raw) setDrafts(JSON.parse(raw));
     } catch {
       // Private mode or corrupted storage: start fresh.
     }
-    const params = new URLSearchParams(window.location.search);
-    if (params.has("demo")) {
-      setState((s) => ({ ...s, settings: { ...s.settings, demo: params.get("demo") !== "0" } }));
-    }
-    setWallNow(Date.now());
+    setNow(Date.now());
     setReady(true);
-    const id = setInterval(() => setWallNow(Date.now()), 1000);
+    const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Persist only after hydration, so the initial empty state never overwrites storage.
   useEffect(() => {
     if (!ready) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts));
     } catch {
-      // Storage full or blocked; state still works for this session.
+      // Storage blocked; drafts still work for this session.
     }
-  }, [state, ready]);
+  }, [drafts, ready]);
 
-  const setDraft = useCallback((key: string, picks: CompanyId[]) => {
-    setState((s) => ({ ...s, drafts: { ...s.drafts, [key]: picks } }));
-  }, []);
-  const lockEntry = useCallback((key: string, entry: Entry) => {
-    setState((s) => ({ ...s, entries: { ...s.entries, [key]: entry } }));
-  }, []);
-  const setRoundPrices = useCallback((key: string, patch: RoundPrices) => {
-    setState((s) => ({ ...s, prices: { ...s.prices, [key]: { ...s.prices[key], ...patch } } }));
-  }, []);
-  const setClaim = useCallback((key: string, claim: Claim) => {
-    setState((s) => ({ ...s, claims: { ...s.claims, [key]: claim } }));
-  }, []);
-  const setName = useCallback((name: string) => {
-    setState((s) => ({ ...s, name: name.trim() || undefined }));
-  }, []);
-  const updateSettings = useCallback((patch: Partial<Settings>) => {
-    setState((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
-  }, []);
-  const resetAll = useCallback(() => {
-    setState({ ...EMPTY, settings: { ...EMPTY.settings, demo: true } });
+  const setDraft = useCallback((leagueId: string, picks: CompanyId[]) => {
+    setDrafts((d) => ({ ...d, [leagueId]: picks }));
   }, []);
 
-  const value = useMemo<GameContext>(
-    () => ({
-      ...state,
-      ready,
-      now: wallNow + state.settings.timeOffset,
-      setDraft,
-      lockEntry,
-      setRoundPrices,
-      setClaim,
-      setName,
-      updateSettings,
-      resetAll,
-    }),
-    [state, ready, wallNow, setDraft, lockEntry, setRoundPrices, setClaim, setName, updateSettings, resetAll],
-  );
-
+  const value = useMemo(() => ({ ready, now, drafts, setDraft }), [ready, now, drafts, setDraft]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

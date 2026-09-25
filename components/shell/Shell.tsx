@@ -1,7 +1,6 @@
 "use client";
 
 import { DesktopNav, Footer, MobileBar, TabBar } from "./Nav";
-import { DemoPanel } from "./DemoPanel";
 
 export function Shell({
   children,
@@ -25,7 +24,6 @@ export function Shell({
       <main id="main">{children}</main>
       {footer && <Footer />}
       <TabBar />
-      <DemoPanel />
     </div>
   );
 }

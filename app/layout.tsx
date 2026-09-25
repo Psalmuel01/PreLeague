@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Big_Shoulders, JetBrains_Mono, Outfit } from "next/font/google";
 import { GameProvider } from "@/components/providers/GameProvider";
 import { PriceProvider } from "@/components/providers/PriceProvider";
+import { SessionProvider } from "@/components/providers/SessionProvider";
 import { WalletProviders } from "@/components/providers/WalletProviders";
 import "./pl.css";
 import "./globals.css";
@@ -25,9 +26,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${display.variable} ${ui.variable} ${mono.variable}`}>
       <body>
         <WalletProviders>
-          <GameProvider>
-            <PriceProvider>{children}</PriceProvider>
-          </GameProvider>
+          <SessionProvider>
+            <GameProvider>
+              <PriceProvider>{children}</PriceProvider>
+            </GameProvider>
+          </SessionProvider>
         </WalletProviders>
       </body>
     </html>

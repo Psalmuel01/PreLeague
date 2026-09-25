@@ -14,6 +14,5 @@ export default async function Page({ params, searchParams }: Props) {
   const { slug } = await params;
   const { round } = await searchParams;
   if (!LEAGUE_BY_SLUG[slug]) notFound();
-  const kickoff = Number(round);
-  return <ResultsView slug={slug} kickoff={Number.isFinite(kickoff) && kickoff > 0 ? kickoff : undefined} />;
+  return <ResultsView slug={slug} roundId={round || undefined} />;
 }

@@ -1,140 +1,126 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { COMPANY_BY_ID, type CompanyId } from "@/lib/companies";
-import { currentRound, lastFinishedRound, roundAt, roundKey, type League, type RoundState } from "@/lib/leagues";
-import { endPrice, startPrice } from "@/lib/scoring";
-import { companyReturns, managersFor, standingsFor, type Manager } from "@/lib/standings";
-import { useGame, type Entry, type RoundPrices } from "@/components/providers/GameProvider";
-import { usePrices } from "@/components/providers/PriceProvider";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CompanyId } from "@/lib/companies";
+import type { League, Phase, RoundState } from "@/lib/leagues";
+import type { LeagueStatus, ManagerJSON, RoundJSON, StandingJSON } from "@/lib/api-types";
+import { useGame } from "@/components/providers/GameProvider";
+import { useSession } from "@/components/providers/SessionProvider";
 
-const LATE_CAPTURE_LIMIT_MS = 5 * 60_000;
+export type Manager = ManagerJSON;
 
-export type { Manager };
-
-export type Standing = Manager & {
-  rank: number;
-  portfolioReturn: number;
-  pickReturns: number[];
+export type Standing = StandingJSON & {
   /** Places gained (+) or lost (−) at the last price update. */
   move: number;
 };
 
 export type RoundView = {
   league: League;
+  id: string;
+  status: LeagueStatus;
   round: RoundState;
-  key: string;
-  priceKey: string;
-  entry: Entry | undefined;
-  draft: CompanyId[];
+  entry: Manager | null;
   managers: Manager[];
-  /** Company returns this round (null until a kick-off price exists). */
   returns: Record<CompanyId, number> | null;
   standings: Standing[] | null;
   you: Standing | null;
-  boundary: RoundPrices;
-  /** Current or final price per symbol used for the returns. */
+  /** Kick-off and (when final) settlement prices by symbol. */
+  boundary: { start?: Record<string, number>; end?: Record<string, number>; startAt: number };
+  /** Current (live) or settlement (final) price per symbol. */
   nowPrices: Record<string, number> | null;
-  /** Round finished but final prices couldn't be established. */
+  nowAt: number | null;
+  stale: boolean;
+  popularity: Record<string, number>;
+  prize: RoundJSON["prize"];
+  maxPlayers: number;
+  winnerWallet: string | null;
+  claim: RoundJSON["claim"];
+  /** Round could not be scored (missing prices) and is under review. */
   unscoreable: boolean;
+  reviewReason: string | null;
+  refresh: () => Promise<void>;
 };
 
-/**
- * Everything a page needs about one round of a league: phase and clock, your
- * lineup, every manager's return and the ranked table. Pass `which` to pick
- * the current round (default), the last finished one, or a specific kick-off.
- */
-export function useRound(
-  league: League,
-  which: "current" | "last-final" | number = "current",
-  opts: { youName?: string; youInitials?: string } = {},
-): RoundView | null {
-  const game = useGame();
-  const { prices, history, priceAt, simulated } = usePrices();
-  const { now, ready } = game;
+type Which = "current" | "next" | "live" | "last" | string;
 
-  const round = useMemo<RoundState | null>(() => {
-    if (!ready) return null;
-    if (which === "current") return currentRound(league, now);
-    if (which === "last-final") return lastFinishedRound(league, now);
-    return roundAt(league, which, now);
-  }, [ready, league, which, now]);
+type SeriesResponse = { round: RoundJSON | null; liveId: string | null; nextId: string | null; lastId: string | null };
 
-  const key = round ? roundKey(league, round.kickoff) : "";
-  const priceKey = `${key}${simulated ? ":sim" : ""}`;
-  const entry = key ? game.entries[key] : undefined;
-  const boundary = useMemo(() => game.prices[priceKey] ?? {}, [game.prices, priceKey]);
-  const { setRoundPrices } = game;
+/** A round of a league from the server, polled while it matters. `which` may be a league id. */
+export function useRound(league: League, which: Which = "current") {
+  const { now, ready } = useGame();
+  const session = useSession();
+  const [data, setData] = useState<SeriesResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Capture kick-off and final-whistle prices for this round once available.
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/series/${league.slug}?which=${encodeURIComponent(which)}`, { cache: "no-store" });
+      if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
+      setData((await res.json()) as SeriesResponse);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [league.slug, which]);
+
+  const status = data?.round?.status;
   useEffect(() => {
-    if (!round || round.phase === "upcoming") return;
-    const symbols = league.pool.map((id) => COMPANY_BY_ID[id].symbol);
-    if (Object.keys(prices).length === 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount, then poll
+    load();
+    const every = status === "live" || status === "settling" ? 10_000 : 30_000;
+    const id = setInterval(load, every);
+    return () => clearInterval(id);
+  }, [load, status, session.wallet]);
 
-    if (!boundary.start) {
-      const start = boundaryPrices(symbols, (s) =>
-        simulated ? priceAt(s, round.kickoff) : safe(() => startPrice(history, s, round.kickoff)),
-      );
-      if (start) {
-        setRoundPrices(priceKey, { start, startAt: round.kickoff });
-      } else if (round.phase === "live" || now - round.endsAt < LATE_CAPTURE_LIMIT_MS) {
-        const late = boundaryPrices(symbols, (s) => prices[s] ?? null);
-        if (late) setRoundPrices(priceKey, { start: late, startAt: now, startLate: true });
-      }
-    }
+  const json = data?.round ?? null;
+  const moves = useRankMoves(json?.id ?? "", json?.standings ?? null);
 
-    if (round.phase === "final" && boundary.start && !boundary.end) {
-      const end = boundaryPrices(symbols, (s) =>
-        simulated ? priceAt(s, round.endsAt) : safe(() => endPrice(history, s, round.endsAt)),
-      );
-      if (end) {
-        setRoundPrices(priceKey, { end, endAt: round.endsAt });
-      } else if (now - round.endsAt < LATE_CAPTURE_LIMIT_MS) {
-        const late = boundaryPrices(symbols, (s) => prices[s] ?? null);
-        if (late) setRoundPrices(priceKey, { end: late, endAt: now });
-      }
-    }
-  }, [round, league.pool, prices, history, priceAt, simulated, boundary, priceKey, now, setRoundPrices]);
+  const view = useMemo<RoundView | null>(() => {
+    if (!json || !ready) return null;
+    const round = toRoundState(json, now);
+    const standings = json.standings?.map((s) => ({ ...s, move: moves[s.id] ?? 0 })) ?? null;
+    return {
+      league,
+      id: json.id,
+      status: json.status,
+      round,
+      entry: json.entry,
+      managers: json.managers,
+      returns: json.returns as Record<CompanyId, number> | null,
+      standings,
+      you: standings?.find((s) => s.you) ?? null,
+      boundary: {
+        start: json.prices.start ?? undefined,
+        end: json.status === "completed" ? json.prices.now ?? undefined : undefined,
+        startAt: json.startsAt,
+      },
+      nowPrices: json.prices.now,
+      nowAt: json.prices.nowAt,
+      stale: json.prices.stale,
+      popularity: json.popularity,
+      prize: json.prize,
+      maxPlayers: json.maxPlayers,
+      winnerWallet: json.winnerWallet,
+      claim: json.claim,
+      unscoreable: json.status === "review_required" || json.status === "cancelled",
+      reviewReason: json.reviewReason,
+      refresh: load,
+    };
+  }, [json, ready, now, moves, league, load]);
 
-  const managers = useMemo<Manager[]>(
-    () => (round ? managersFor(league, round.kickoff, entry, { name: opts.youName ?? "You", initials: opts.youInitials ?? "Y" }) : []),
-    [round, league, entry, opts.youName, opts.youInitials],
-  );
+  return { view, loaded: data !== null || error !== null, error, ids: { live: data?.liveId ?? null, next: data?.nextId ?? null, last: data?.lastId ?? null }, refresh: load };
+}
 
-  const nowPrices = useMemo<Record<string, number> | null>(() => {
-    if (!round || round.phase === "upcoming") return null;
-    return (round.phase === "final" ? boundary.end : prices) ?? null;
-  }, [round, boundary.end, prices]);
-
-  const returns = useMemo(
-    () => companyReturns(league, boundary.start, nowPrices ?? undefined),
-    [league, boundary.start, nowPrices],
-  );
-
-  const ranked = useMemo(() => standingsFor(managers, returns), [managers, returns]);
-  const moves = useRankMoves(key, ranked);
-
-  const standings = useMemo<Standing[] | null>(
-    () => ranked?.map((r) => ({ ...r, move: moves[r.id] ?? 0 })) ?? null,
-    [ranked, moves],
-  );
-
-  if (!round) return null;
+/** Clock state for a round summary from the server. */
+export function toRoundState(r: { round: number; status: LeagueStatus; startsAt: number; endsAt: number }, now: number): RoundState {
+  const phase: Phase =
+    r.status === "upcoming" && now < r.startsAt ? "upcoming" : (r.status === "live" || r.status === "upcoming") && now < r.endsAt ? "live" : "final";
   return {
-    league,
-    round,
-    key,
-    priceKey,
-    entry,
-    draft: game.drafts[key] ?? [],
-    managers,
-    returns,
-    standings,
-    you: standings?.find((s) => s.you) ?? null,
-    boundary,
-    nowPrices,
-    unscoreable: round.phase === "final" && !boundary.end && now - round.endsAt >= LATE_CAPTURE_LIMIT_MS,
+    round: r.round,
+    phase,
+    kickoff: r.startsAt,
+    endsAt: r.endsAt,
+    remaining: phase === "upcoming" ? r.startsAt - now : phase === "live" ? r.endsAt - now : 0,
   };
 }
 
@@ -147,32 +133,9 @@ function useRankMoves(key: string, ranked: { id: string; rank: number }[] | null
     const ranks = Object.fromEntries(ranked.map((r) => [r.id, r.rank]));
     const before = prev.current?.key === key ? prev.current.ranks : null;
     prev.current = { key, ranks };
-    if (!before) {
-      setMoves({});
-      return;
-    }
+    if (!before) return;
     const changed = ranked.some((r) => before[r.id] !== undefined && before[r.id] !== r.rank);
-    if (changed) {
-      setMoves(Object.fromEntries(ranked.map((r) => [r.id, (before[r.id] ?? r.rank) - r.rank])));
-    }
+    if (changed) setMoves(Object.fromEntries(ranked.map((r) => [r.id, (before[r.id] ?? r.rank) - r.rank])));
   }, [key, ranked]);
   return moves;
-}
-
-function boundaryPrices(symbols: string[], get: (s: string) => number | null): Record<string, number> | null {
-  const out: Record<string, number> = {};
-  for (const s of symbols) {
-    const p = get(s);
-    if (p === null || !Number.isFinite(p) || p <= 0) return null;
-    out[s] = p;
-  }
-  return out;
-}
-
-function safe(fn: () => number): number | null {
-  try {
-    return fn();
-  } catch {
-    return null;
-  }
 }

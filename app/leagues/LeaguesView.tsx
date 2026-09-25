@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { LEAGUES, currentRound, joinableRound, type League, type RoundState } from "@/lib/leagues";
+import { useState } from "react";
+import { LEAGUE_BY_SLUG, type League } from "@/lib/leagues";
 import { dateLabel } from "@/lib/format";
-import { useRound } from "@/lib/hooks/useRound";
+import { toRoundState, useRound } from "@/lib/hooks/useRound";
+import { useLeagues } from "@/lib/hooks/useLeagues";
 import { useHistory, type HistoryItem } from "@/lib/hooks/useHistory";
 import { usePlayer } from "@/lib/hooks/usePlayer";
 import { useGame } from "@/components/providers/GameProvider";
@@ -27,11 +28,11 @@ function dayLabel(ts: number, now: number) {
 export function LeaguesView() {
   const { ready, now } = useGame();
   const player = usePlayer();
-  const you = useMemo(() => ({ name: player.displayName, initials: player.initials }), [player.displayName, player.initials]);
-  const history = useHistory(you);
+  const history = useHistory();
+  const series = useLeagues();
   const [tab, setTab] = useState<Tab>("upcoming");
 
-  if (!ready || !history) {
+  if (!ready || !history || !series) {
     return (
       <Shell>
         <PageSkeleton height={312} />
@@ -39,11 +40,12 @@ export function LeaguesView() {
     );
   }
 
-  const live = LEAGUES.map((l) => ({ league: l, round: currentRound(l, now) })).filter((x) => x.round.phase === "live");
-  const upcoming = LEAGUES.map((l) => ({ league: l, round: joinableRound(l, now) }))
-    .filter((x): x is { league: League; round: RoundState } => Boolean(x.round))
+  const live = series.filter((x) => x.live && LEAGUE_BY_SLUG[x.slug]).map((x) => ({ league: LEAGUE_BY_SLUG[x.slug], id: x.live!.id }));
+  const upcoming = series
+    .filter((x) => x.next && LEAGUE_BY_SLUG[x.slug])
+    .map((x) => ({ league: LEAGUE_BY_SLUG[x.slug], round: toRoundState(x.next!, now), managers: x.next!.managers, joined: x.next!.joined }))
     .sort((a, b) => a.round.kickoff - b.round.kickoff);
-  // Your finished rounds, plus the last final table of each recurring league.
+  // Your finished rounds.
   const completed = history.items;
 
   const groups: { label: string; rows: typeof upcoming }[] = [];
@@ -102,8 +104,16 @@ export function LeaguesView() {
             groups.map((g) => (
               <div key={g.label} className="stack" style={{ gap: 12 }}>
                 <span className="eyebrow">{g.label}</span>
-                {g.rows.map(({ league, round }) => (
-                  <LeagueFacts key={league.slug} league={league} round={round} variant="list" highlight={league.featured && league.slug !== "stocklana-sprint" ? "navy" : undefined} />
+                {g.rows.map(({ league, round, managers, joined }) => (
+                  <LeagueFacts
+                    key={league.slug}
+                    league={league}
+                    round={round}
+                    managers={managers}
+                    joined={joined}
+                    variant="list"
+                    highlight={league.featured && league.slug !== "stocklana-sprint" ? "navy" : undefined}
+                  />
                 ))}
               </div>
             ))}
@@ -112,8 +122,8 @@ export function LeaguesView() {
             <div className="stack" style={{ gap: 12 }}>
               <span className="eyebrow">In play now</span>
               {live.length === 0 && <EmptyCard title="Nothing in play right now" body="The next round kicks off soon — draft your squad from Upcoming." />}
-              {live.map(({ league }) => (
-                <LiveLeagueCard key={league.slug} league={league} />
+              {live.map(({ league, id }) => (
+                <LiveLeagueCard key={id} league={league} id={id} />
               ))}
             </div>
           )}
@@ -123,7 +133,7 @@ export function LeaguesView() {
               <span className="eyebrow">Final whistle</span>
               {completed.length === 0 && <EmptyCard title="No finished rounds yet" body="Your results land here after the final whistle." />}
               {completed.map((item) => (
-                <CompletedCard key={item.key} item={item} />
+                <CompletedCard key={item.leagueId} item={item} />
               ))}
             </div>
           )}
@@ -143,14 +153,13 @@ function EmptyCard({ title, body }: { title: string; body: string }) {
   );
 }
 
-function LiveLeagueCard({ league }: { league: League }) {
-  const player = usePlayer();
-  const view = useRound(league, "current", { youName: player.displayName, youInitials: player.initials });
+function LiveLeagueCard({ league, id }: { league: League; id: string }) {
+  const { view } = useRound(league, id);
   if (!view) return null;
   return (
     <article className="card" style={{ overflow: "hidden" }}>
       <div style={{ borderBottom: "1px solid var(--line)" }}>
-        <LeagueFacts league={league} round={view.round} variant="list" bare />
+        <LeagueFacts league={league} round={view.round} managers={view.managers.length} joined={Boolean(view.entry)} variant="list" bare />
       </div>
       {view.standings ? (
         <LeagueTable rows={view.standings} mode="final" compact limit={3} expandable={false} />
@@ -170,8 +179,9 @@ function LiveLeagueCard({ league }: { league: League }) {
 }
 
 function CompletedCard({ item }: { item: HistoryItem }) {
-  const { league, round, winner, you } = item;
-  const won = you?.rank === 1;
+  const { league, winner } = item;
+  const won = item.rank === 1;
+  const review = item.status !== "completed";
   return (
     <article
       className="card facts"
@@ -179,14 +189,13 @@ function CompletedCard({ item }: { item: HistoryItem }) {
     >
       <div className="fact head">
         <div className="row" style={{ gap: 8 }}>
-          {won ? <Badge kind="won">You won</Badge> : <Badge kind="done">Completed</Badge>}
+          {won ? <Badge kind="won">You won</Badge> : review ? <Badge kind="warn">{item.status === "cancelled" ? "Cancelled" : "Under review"}</Badge> : <Badge kind="done">Completed</Badge>}
           <span className="caption">
-            {league.format} · {dateLabel(round.kickoff)}
-            {item.simulated ? " · simulated prices" : ""}
+            {league.format} · {dateLabel(item.startsAt)}
           </span>
         </div>
         <h2 className="h-3" style={{ fontSize: 30 }}>
-          {league.name} · R{round.round}
+          {league.name} · R{item.round}
         </h2>
         {won && (
           <span className="caption row" style={{ gap: 8 }}>
@@ -211,24 +220,27 @@ function CompletedCard({ item }: { item: HistoryItem }) {
             </div>
           </>
         ) : (
-          <span className="small muted">Final prices weren’t recorded for this round.</span>
+          <span className="small muted">{review ? "No result — prices were missing at a scoring boundary." : "No winner"}</span>
         )}
       </div>
       <div className="fact" style={{ justifyContent: "center", gap: 6 }}>
         <span className="cd-label">Your return</span>
-        {you ? <Delta value={you.portfolioReturn} className="fig-m" /> : <span className="fig-m">—</span>}
-        {you && <span className="caption">Finished #{you.rank}</span>}
+        {item.score !== null ? <Delta value={item.score} className="fig-m" /> : <span className="fig-m">—</span>}
+        {item.rank && (
+          <span className="caption">
+            Finished #{item.rank} of {item.managers}
+          </span>
+        )}
       </div>
       <div className="fact" style={{ justifyContent: "center" }}>
         <span className="cd-label">{won ? "Prize won" : "Prize"}</span>
-        <PrizeLine company={league.prize.company} usd={league.prize.usd} />
+        <PrizeLine company={item.prize.company} usd={item.prize.usd} />
       </div>
       <div className="fact cta">
-        <Link className={`btn ${won ? "btn-lime" : "btn-secondary"} btn-block`} href={`/league/${league.slug}/results?round=${round.kickoff}`}>
-          {won ? "Claim prize" : "View results"}
+        <Link className={`btn ${won && item.claim !== "sent" ? "btn-lime" : "btn-secondary"} btn-block`} href={`/league/${league.slug}/${won && item.claim !== "sent" ? "claim" : "results"}?round=${item.leagueId}`}>
+          {won ? (item.claim === "sent" ? "View results" : "Claim prize") : "View results"}
         </Link>
       </div>
     </article>
   );
 }
-

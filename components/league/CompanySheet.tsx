@@ -13,7 +13,7 @@ import { Sparkline } from "./Sparkline";
 /** A company's round so far: return, start/now prices, price path, who picked it. */
 export function CompanySheet({ id, view, onClose }: { id: CompanyId; view: RoundView; onClose: () => void }) {
   const c = COMPANY_BY_ID[id];
-  const { history, priceAt, simulated } = usePrices();
+  const { history } = usePrices();
   const { now } = useGame();
   const start = view.boundary.start?.[c.symbol];
   const current = view.nowPrices?.[c.symbol];
@@ -22,21 +22,13 @@ export function CompanySheet({ id, view, onClose }: { id: CompanyId; view: Round
   const pickers = view.managers.filter((m) => m.picks.includes(id));
 
   const points = useMemo<[number, number][]>(() => {
-    const from = view.boundary.startAt ?? view.round.kickoff;
+    const from = view.boundary.startAt;
     const to = view.round.phase === "final" ? view.round.endsAt : now;
-    if (simulated) {
-      const out: [number, number][] = [];
-      const step = Math.max(10_000, (to - from) / 60);
-      for (let t = from; t <= to; t += step) {
-        const p = priceAt(c.symbol, t);
-        if (p) out.push([t, p]);
-      }
-      return out;
-    }
     const pts = history.filter((s) => s.symbol === c.symbol && s.capturedAt >= from && s.capturedAt <= to).map((s) => [s.capturedAt, s.tokenPrice] as [number, number]);
     if (start && (pts.length === 0 || pts[0][0] > from)) pts.unshift([from, start]);
+    if (current && view.nowAt && (pts.length === 0 || pts[pts.length - 1][0] < view.nowAt)) pts.push([view.nowAt, current]);
     return pts;
-  }, [view.boundary.startAt, view.round, now, simulated, priceAt, c.symbol, history, start]);
+  }, [view.boundary.startAt, view.round, view.nowAt, now, c.symbol, history, start, current]);
 
   return (
     <>

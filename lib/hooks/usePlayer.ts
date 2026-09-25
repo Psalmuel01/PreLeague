@@ -1,51 +1,38 @@
 "use client";
 
-import { useCallback } from "react";
-import bs58 from "bs58";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { useGame } from "@/components/providers/GameProvider";
+import { useSession } from "@/components/providers/SessionProvider";
 import { shortAddress } from "@/lib/format";
 
 export type Player = {
+  /** Signed in with a wallet (server session). */
+  signedIn: boolean;
+  /** A wallet is connected in the browser (may not be signed in yet). */
   connected: boolean;
   address: string | null;
-  /** Guest play is allowed in demo mode only. */
-  canPlay: boolean;
   displayName: string;
   initials: string;
+  signingIn: boolean;
+  error: string | null;
   connect: () => void;
-  disconnect: () => Promise<void>;
-  /** Sign a UTF-8 message; resolves to a base58 signature, or null when the wallet can't sign. */
-  sign: (message: string) => Promise<string | null>;
+  signIn: () => Promise<boolean>;
+  signOut: () => Promise<void>;
 };
 
 export function usePlayer(): Player {
-  const { publicKey, connected, signMessage, disconnect } = useWallet();
-  const { setVisible } = useWalletModal();
-  const { name, settings } = useGame();
-
-  const address = publicKey?.toBase58() ?? null;
-  const displayName = name || (address ? shortAddress(address) : settings.demo ? "Guest" : "You");
-  const initials = (name ? name.slice(0, 1) : address ? address.slice(0, 2) : displayName.slice(0, 1)).toUpperCase();
-
-  const sign = useCallback(
-    async (message: string) => {
-      if (!signMessage) return null;
-      const sig = await signMessage(new TextEncoder().encode(message));
-      return bs58.encode(sig);
-    },
-    [signMessage],
-  );
-
+  const session = useSession();
+  const address = session.wallet ?? session.connectedWallet;
+  const displayName = session.displayName || (address ? shortAddress(address) : "You");
+  const initials = (session.displayName ? session.displayName.slice(0, 1) : address ? address.slice(0, 2) : "Y").toUpperCase();
   return {
-    connected,
+    signedIn: Boolean(session.wallet),
+    connected: session.connected,
     address,
-    canPlay: connected || settings.demo,
     displayName,
     initials,
-    connect: () => setVisible(true),
-    disconnect,
-    sign,
+    signingIn: session.signingIn,
+    error: session.error,
+    connect: session.connect,
+    signIn: session.signIn,
+    signOut: session.signOut,
   };
 }

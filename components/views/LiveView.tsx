@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { COMPANY_BY_ID, type CompanyId } from "@/lib/companies";
-import { LEAGUE_BY_SLUG, roundKey } from "@/lib/leagues";
+import { LEAGUE_BY_SLUG } from "@/lib/leagues";
 import { pct, pctAbs, timeOfDay } from "@/lib/format";
 import { useRound, type Standing } from "@/lib/hooks/useRound";
-import { usePlayer } from "@/lib/hooks/usePlayer";
 import { useGame } from "@/components/providers/GameProvider";
 import { CompanySheet } from "@/components/league/CompanySheet";
 import { PriceSourcePill } from "@/components/league/PriceSourcePill";
@@ -22,38 +21,39 @@ import { Pitch } from "@/components/ui/Pitch";
 export function LiveView({ slug }: { slug: string }) {
   const league = LEAGUE_BY_SLUG[slug];
   const router = useRouter();
-  const { ready, entries } = useGame();
-  const player = usePlayer();
-  const view = useRound(league, "current", { youName: player.displayName, youInitials: player.initials });
+  const { ready } = useGame();
+  const { view, loaded } = useRound(league, "current");
   const [company, setCompany] = useState<CompanyId | null>(null);
   const [breakdown, setBreakdown] = useState(false);
 
   // At the final whistle, follow the round you were watching to its results.
-  const watching = useRef<{ kickoff: number; live: boolean } | null>(null);
+  const watching = useRef<{ id: string; live: boolean } | null>(null);
   useEffect(() => {
     if (!view) return;
     const prev = watching.current;
-    if (prev?.live && prev.kickoff !== view.round.kickoff) {
-      router.push(`/league/${slug}/results?round=${prev.kickoff}`);
+    if (prev?.live && prev.id !== view.id) {
+      router.push(`/league/${slug}/results?round=${prev.id}`);
       return;
     }
-    watching.current = { kickoff: view.round.kickoff, live: view.round.phase === "live" };
+    watching.current = { id: view.id, live: view.round.phase === "live" };
   }, [view, router, slug]);
 
-  if (!ready || !view) {
+  if (!ready || !loaded) {
     return (
       <Shell>
         <PageSkeleton height={420} />
       </Shell>
     );
   }
-
+  if (!view) {
+    return <Redirect to={`/league/${slug}`} />;
+  }
   const { round, standings, you } = view;
   if (round.phase === "final") {
-    return <Redirect to={`/league/${slug}/results`} />;
+    return <Redirect to={`/league/${slug}/results?round=${view.id}`} />;
   }
   if (round.phase === "upcoming") {
-    return <PreMatch slug={slug} joined={Boolean(entries[roundKey(league, round.kickoff)])} kickoffIn={round.remaining} kickoff={round.kickoff} round={round.round} />;
+    return <PreMatch slug={slug} joined={Boolean(view.entry)} kickoffIn={round.remaining} kickoff={round.kickoff} round={round.round} />;
   }
 
   const returns = view.returns;
@@ -277,10 +277,10 @@ export function LiveView({ slug }: { slug: string }) {
                 <span className="spacer" />
                 <PriceSourcePill />
               </div>
-              {view.boundary.startLate && (
-                <div className="banner banner-info" style={{ margin: "0 16px 14px", fontSize: 13.5 }}>
-                  <Icon name="info" size="sm" />
-                  Kick-off prices were captured at {timeOfDay(view.boundary.startAt!)}, when this round was first opened here.
+              {view.stale && (
+                <div className="banner banner-warn" style={{ margin: "0 16px 14px", fontSize: 13.5 }}>
+                  <Icon name="warning" size="sm" />
+                  Prices haven’t updated since {view.nowAt ? timeOfDay(view.nowAt) : "kick-off"}. If fresh prices don’t arrive by the final whistle, this round goes to review instead of being scored on old data.
                 </div>
               )}
               {standings ? <LeagueTable rows={standings} mode="live" limit={10} /> : <WaitingForPrices />}

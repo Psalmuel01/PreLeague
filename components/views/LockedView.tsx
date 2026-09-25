@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { COMPANY_BY_ID } from "@/lib/companies";
-import { LEAGUE_BY_SLUG, currentRound, joinableRound, roundKey } from "@/lib/leagues";
+import { LEAGUE_BY_SLUG } from "@/lib/leagues";
+import { useRound } from "@/lib/hooks/useRound";
 import { EARLY_BIRD_MS, XP } from "@/lib/standings";
 import { shareText } from "@/lib/share";
 import { usePlayer } from "@/lib/hooks/usePlayer";
@@ -17,18 +18,20 @@ import { Pitch } from "@/components/ui/Pitch";
 export function LockedView({ slug }: { slug: string }) {
   const league = LEAGUE_BY_SLUG[slug];
   const router = useRouter();
-  const { ready, now, entries } = useGame();
+  const { ready } = useGame();
   const player = usePlayer();
+  const next = useRound(league, "next");
+  const live = useRound(league, "live");
 
-  const next = ready ? joinableRound(league, now) : null;
-  const cur = ready ? currentRound(league, now) : null;
   // Your squad for the round still to start, else the one now in play.
-  const round = next && entries[roundKey(league, next.kickoff)] ? next : cur && entries[roundKey(league, cur.kickoff)] ? cur : null;
-  const entry = round ? entries[roundKey(league, round.kickoff)] : undefined;
+  const view = next.view?.entry ? next.view : live.view?.entry ? live.view : null;
+  const round = view?.round ?? null;
+  const entry = view?.entry ?? null;
+  const loaded = next.loaded && live.loaded;
 
   useEffect(() => {
-    if (ready && !entry) router.replace(`/league/${slug}`);
-  }, [ready, entry, router, slug]);
+    if (ready && loaded && !entry) router.replace(`/league/${slug}`);
+  }, [ready, loaded, entry, router, slug]);
 
   if (!ready || !round || !entry) {
     return (
@@ -38,9 +41,9 @@ export function LockedView({ slug }: { slug: string }) {
     );
   }
 
-  const live = round.phase === "live";
+  const isLive = round.phase === "live";
   const earlyBird = entry.lockedAt <= round.kickoff - EARLY_BIRD_MS;
-  const slots = entry.picks.map((id) => ({ id, value: "33.3%" }));
+  const slots = entry.picks.map((id) => ({ id, value: "33.3%" as const }));
   const names = entry.picks.map((p) => COMPANY_BY_ID[p].name);
   const share = () =>
     shareText(`My ${league.name} lineup: ${names.join(" · ")}. Think you can beat it?`, `/league/${slug}`);
@@ -70,21 +73,26 @@ export function LockedView({ slug }: { slug: string }) {
               Squad <span className="hl">locked.</span>
             </h1>
             <p className="lead" style={{ color: "var(--navy-ink-2)", maxWidth: 540 }}>
-              {live
+              {isLive
                 ? "The round is live. Your picks are moving with the market — best average return takes the prize."
                 : "You’re in. When the round starts, your picks move with the market — best average return takes the prize."}
             </p>
             <div className="row wrap" style={{ alignItems: "flex-end", gap: 28 }}>
               <div className="stack" style={{ gap: 10 }}>
                 <span className="cd-label" style={{ color: "var(--navy-ink-2)" }}>
-                  {live ? "Time left" : "League starts in"}
+                  {isLive ? "Time left" : "League starts in"}
                 </span>
-                <Clock ms={round.remaining} variant="lg" label={live ? "Time left" : "League starts in"} role="timer" />
+                <Clock ms={round.remaining} variant="lg" label={isLive ? "Time left" : "League starts in"} role="timer" />
               </div>
               <div className="row wrap" style={{ gap: 12, paddingBottom: 3 }}>
-                <Link className="btn btn-lime btn-lg" href={`/league/${slug}/${live ? "live" : ""}`}>
-                  {live ? "Watch live" : "View league"}
+                <Link className="btn btn-lime btn-lg" href={`/league/${slug}/${isLive ? "live" : ""}`}>
+                  {isLive ? "Watch live" : "View league"}
                 </Link>
+                {!isLive && (
+                  <Link className="btn btn-ghost-night btn-lg" href={`/league/${slug}/draft?edit=1`}>
+                    Edit lineup
+                  </Link>
+                )}
                 <button type="button" className="btn btn-ghost-night btn-lg" onClick={share}>
                   <Icon name="share" />
                   Share lineup

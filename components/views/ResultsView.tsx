@@ -1,17 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { COMPANY_BY_ID } from "@/lib/companies";
-import { LEAGUE_BY_SLUG, joinableRound } from "@/lib/leagues";
+import { LEAGUE_BY_SLUG } from "@/lib/leagues";
 import { pct, pctAbs, timeOfDay, usd } from "@/lib/format";
 import { EARLY_BIRD_MS, levelFor, roundXp } from "@/lib/standings";
 import { shareText } from "@/lib/share";
 import { useRound } from "@/lib/hooks/useRound";
 import { useHistory } from "@/lib/hooks/useHistory";
-import { usePlayer } from "@/lib/hooks/usePlayer";
 import { useGame } from "@/components/providers/GameProvider";
-import { usePrices } from "@/components/providers/PriceProvider";
 import { SquadBreakdown } from "@/components/league/SquadBreakdown";
 import { PageSkeleton, Shell } from "@/components/shell/Shell";
 import { Achv, Avatar, Badge, CoLogo, Delta, Medal } from "@/components/ui/bits";
@@ -21,17 +19,14 @@ import { Pitch } from "@/components/ui/Pitch";
 
 const ORDINAL = ["first", "second", "third"];
 
-export function ResultsView({ slug, kickoff }: { slug: string; kickoff?: number }) {
+export function ResultsView({ slug, roundId }: { slug: string; roundId?: string }) {
   const league = LEAGUE_BY_SLUG[slug];
-  const { ready, now, claims } = useGame();
-  const { simulated } = usePrices();
-  const player = usePlayer();
-  const you = useMemo(() => ({ name: player.displayName, initials: player.initials }), [player.displayName, player.initials]);
-  const view = useRound(league, kickoff ?? "last-final", { youName: you.name, youInitials: you.initials });
-  const history = useHistory(you);
+  const { ready } = useGame();
+  const { view, loaded, ids } = useRound(league, roundId ?? "last");
+  const history = useHistory();
   const [breakdown, setBreakdown] = useState(false);
 
-  if (!ready || !view || !history) {
+  if (!ready || !loaded || !history) {
     return (
       <Shell>
         <PageSkeleton height={480} />
@@ -39,8 +34,16 @@ export function ResultsView({ slug, kickoff }: { slug: string; kickoff?: number 
     );
   }
 
+  const next = ids.next;
+  if (!view) {
+    return (
+      <Shell>
+        <Notice eyebrow={league.name} title="No results yet" body="Results appear here after a round’s final whistle." cta={{ href: `/league/${slug}`, label: "Join the next round" }} />
+      </Shell>
+    );
+  }
+
   const { round, standings } = view;
-  const next = joinableRound(league, now);
 
   if (round.phase !== "final") {
     return (
@@ -55,18 +58,31 @@ export function ResultsView({ slug, kickoff }: { slug: string; kickoff?: number 
     );
   }
 
+  if (view.status === "settling" || (view.status === "live" && round.phase === "final")) {
+    return (
+      <Shell>
+        <Notice
+          eyebrow={`${league.name} · Round ${round.round}`}
+          title="Settling…"
+          body="The final whistle has gone. Final prices are being averaged and the table is being frozen — this page updates by itself."
+          cta={{ href: `/league/${slug}/live`, label: "Back to the table" }}
+        />
+      </Shell>
+    );
+  }
+
   if (!standings) {
     return (
       <Shell>
         <Notice
           eyebrow={`${league.name} · Round ${round.round} · Ended ${timeOfDay(round.endsAt)}`}
-          title={view.unscoreable ? "Under review" : "No result on record"}
+          title={view.status === "cancelled" ? "Round cancelled" : "Under review"}
           body={
-            view.unscoreable
-              ? "We don’t have valid final prices for every company in this round, so it can’t be scored. Rounds without fresh prices at kick-off or the final whistle are reviewed or voided — never scored on stale prices."
-              : "This round wasn’t tracked on this device, so there’s no final table to show."
+            view.status === "cancelled"
+              ? "This round was cancelled and won’t be scored."
+              : `This round can’t be scored automatically: ${view.reviewReason ?? "prices were missing at a scoring boundary"}. Rounds without fresh prices at kick-off or the final whistle are reviewed or voided — never scored on stale prices.`
           }
-          cta={next ? { href: `/league/${slug}`, label: `Join Round ${next.round}` } : { href: "/leagues", label: "Browse leagues" }}
+          cta={next ? { href: `/league/${slug}`, label: "Join the next round" } : { href: "/leagues", label: "Browse leagues" }}
         />
       </Shell>
     );
@@ -80,7 +96,7 @@ export function ResultsView({ slug, kickoff }: { slug: string; kickoff?: number 
   const rewards = me ? roundXp(me.rank, earlyBird) : null;
   const level = levelFor(history.xp);
   const topPct = me ? Math.max(1, Math.round((me.rank / standings.length) * 100)) : null;
-  const claim = claims[view.key];
+  const claim = view.claim;
 
   const lead = me
     ? me.rank === 1
@@ -110,7 +126,6 @@ export function ResultsView({ slug, kickoff }: { slug: string; kickoff?: number 
               </span>
               <span className="caption" style={{ fontSize: 14 }}>
                 {league.name} · Round {round.round} · Ended {timeOfDay(round.endsAt)}
-                {simulated ? " · simulated prices" : ""}
               </span>
             </div>
             <h1 className="h-hero t-hero-sm">
@@ -236,7 +251,7 @@ export function ResultsView({ slug, kickoff }: { slug: string; kickoff?: number 
                 <p className="small muted">Draft a squad for the next one and see your name on this table.</p>
                 {next && (
                   <Link className="btn btn-navy" href={`/league/${slug}`}>
-                    Join Round {next.round}
+                    Join the next round
                   </Link>
                 )}
               </div>
@@ -284,9 +299,9 @@ export function ResultsView({ slug, kickoff }: { slug: string; kickoff?: number 
             )}
             <div className="stack" style={{ gap: 10, marginTop: "auto" }}>
               {me?.rank === 1 ? (
-                <Link className="btn btn-lime btn-lg btn-block" href={`/league/${slug}/claim?round=${round.kickoff}`}>
+                <Link className="btn btn-lime btn-lg btn-block" href={`/league/${slug}/claim?round=${view.id}`}>
                   <Icon name="gift" />
-                  {claim?.status === "done" ? "Prize claimed" : "Claim prize"}
+                  {claim?.status === "sent" ? "Prize claimed" : "Claim prize"}
                 </Link>
               ) : (
                 <Link className="btn btn-lime btn-lg btn-block" href={next ? `/league/${slug}` : "/leagues"}>
@@ -328,7 +343,6 @@ export function ResultsView({ slug, kickoff }: { slug: string; kickoff?: number 
             <p className="body">
               Kick-off and final-whistle prices are PreStocks token prices, averaged over the first and last snapshots of the round. Every squad’s score is the plain average of its three picks.
             </p>
-            {view.boundary.startLate && <p className="caption">Kick-off prices were captured at {timeOfDay(view.boundary.startAt!)} (round opened late on this device).</p>}
           </div>
           <div className="card" style={{ overflow: "hidden" }}>
             <div className="bd-row bd-head scoring-grid">
