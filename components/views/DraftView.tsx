@@ -12,7 +12,7 @@ import { useGame } from "@/components/providers/GameProvider";
 import { usePrices } from "@/components/providers/PriceProvider";
 import { MobileBarTitle } from "@/components/shell/MobileBarTitle";
 import { PageSkeleton, Shell } from "@/components/shell/Shell";
-import { Clock, CoLogo, Delta } from "@/components/ui/bits";
+import { Clock, CoImg, CoLogo, Delta } from "@/components/ui/bits";
 import { Icon } from "@/components/ui/Icon";
 import { Pitch } from "@/components/ui/Pitch";
 
@@ -214,9 +214,7 @@ export function DraftView({ slug, edit = false }: { slug: string; edit?: boolean
                   )}
                   <div className="row" style={{ alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                     <span className="kit-shirt draft-shirt" style={{ background: c.fill }} aria-hidden="true">
-                      <span className="mono-mark" style={{ color: c.ink }}>
-                        {c.mono}
-                      </span>
+                      <CoImg id={c.id} size={64} />
                     </span>
                     {price && mark ? (
                       <span className="stack" style={{ alignItems: "flex-end", gap: 4 }} title="Token price premium over the PreStocks mark price">

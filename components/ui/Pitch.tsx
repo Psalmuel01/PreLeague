@@ -1,5 +1,6 @@
 import { COMPANY_BY_ID, type CompanyId } from "@/lib/companies";
 import { direction, pct } from "@/lib/format";
+import { CoImg } from "./bits";
 import { Icon } from "./Icon";
 
 export type Slot = {
@@ -108,9 +109,7 @@ export function Kit({
   return (
     <div className={["kit", mini ? "kit-mini" : "", pop ? "pop" : ""].join(" ")}>
       <div className="kit-shirt" style={{ background: c.fill }}>
-        <span className="mono-mark" style={{ color: c.ink }}>
-          {c.mono}
-        </span>
+        <CoImg id={c.id} size={80} />
       </div>
       <div className="plate">
         <div className="n">{c.name}</div>

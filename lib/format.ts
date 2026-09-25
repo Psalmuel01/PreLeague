@@ -2,6 +2,7 @@ const MINUS = "−";
 
 /** Signed percentage from a fraction: 0.0283 → "+2.83%". Uses a true minus sign. */
 export function pct(fraction: number, digits = 2): string {
+  if (!Number.isFinite(fraction)) return "—";
   const v = fraction * 100;
   const rounded = Number(v.toFixed(digits));
   if (rounded === 0) return `${(0).toFixed(digits)}%`;
@@ -10,6 +11,7 @@ export function pct(fraction: number, digits = 2): string {
 
 /** Unsigned percentage from a fraction: 0.0029 → "0.29%". */
 export function pctAbs(fraction: number, digits = 2): string {
+  if (!Number.isFinite(fraction)) return "—";
   return `${Math.abs(fraction * 100).toFixed(digits)}%`;
 }
 

@@ -6,7 +6,7 @@ import { usd } from "@/lib/format";
 import type { RoundView } from "@/lib/hooks/useRound";
 import { usePrices } from "@/components/providers/PriceProvider";
 import { useGame } from "@/components/providers/GameProvider";
-import { Avatar, Badge, Delta } from "@/components/ui/bits";
+import { Avatar, Badge, CoImg, Delta } from "@/components/ui/bits";
 import { Icon } from "@/components/ui/Icon";
 import { Sparkline } from "./Sparkline";
 
@@ -38,9 +38,7 @@ export function CompanySheet({ id, view, onClose }: { id: CompanyId; view: Round
         <div className="company-hero">
           <span className="band-slash thin" style={{ right: 40, opacity: 0.9 }} aria-hidden="true" />
           <div className="kit-shirt" style={{ background: c.fill, flexShrink: 0 }}>
-            <span className="mono-mark" style={{ color: c.ink }}>
-              {c.mono}
-            </span>
+            <CoImg id={c.id} size={80} />
           </div>
           <div className="stack" style={{ position: "relative", gap: 6, minWidth: 0, flexGrow: 1 }}>
             <h2 className="h-2" style={{ fontSize: 38, color: "#fff" }}>

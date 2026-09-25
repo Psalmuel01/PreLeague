@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { COMPANY_BY_ID, type CompanyId } from "@/lib/companies";
 import { clockParts, direction, durationLabel, pct } from "@/lib/format";
 import { Icon } from "./Icon";
@@ -19,12 +20,18 @@ export function CoLogo({
   return (
     <span
       className={["logo", size ? `logo-${size}` : "", className ?? ""].filter(Boolean).join(" ")}
-      style={{ background: c.fill, color: c.ink, ...style }}
+      style={{ background: c.fill, ...style }}
       aria-hidden="true"
     >
-      {c.mono}
+      <CoImg id={id} />
     </span>
   );
+}
+
+/** The company's official logo, filling its (positioned) tile. */
+export function CoImg({ id, size = 64 }: { id: CompanyId; size?: number }) {
+  const c = COMPANY_BY_ID[id];
+  return <Image className="co-img" src={c.logo} alt="" fill sizes={`${size}px`} draggable={false} />;
 }
 
 export function LogoStack({ ids, size = "xs", label }: { ids: CompanyId[]; size?: "xs" | "sm"; label?: string }) {

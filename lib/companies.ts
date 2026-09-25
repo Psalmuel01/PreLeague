@@ -16,7 +16,9 @@ export type Company = {
   symbol: string;
   name: string;
   mono: string;
-  /** Logo tile background */
+  /** Official logo (from the PreStocks API), served from /public/logos */
+  logo: string;
+  /** Logo tile background (matches the logo's own background) */
   fill: string;
   /** Logo tile text colour */
   ink: string;
@@ -33,7 +35,8 @@ export const COMPANIES: Company[] = [
     symbol: "OPENAI",
     name: "OpenAI",
     mono: "OA",
-    fill: "#111318",
+    logo: "/logos/openai.png",
+    fill: "#0EA982",
     ink: "#fff",
     desc: "AI research",
     about: "AI research lab behind ChatGPT.",
@@ -44,7 +47,8 @@ export const COMPANIES: Company[] = [
     symbol: "ANTHROPIC",
     name: "Anthropic",
     mono: "An",
-    fill: "#D97757",
+    logo: "/logos/anthropic.png",
+    fill: "#D3A27F",
     ink: "#fff",
     desc: "AI safety & models",
     about: "AI safety company building Claude.",
@@ -55,7 +59,8 @@ export const COMPANIES: Company[] = [
     symbol: "SPACEX",
     name: "SpaceX",
     mono: "SX",
-    fill: "#1B2B55",
+    logo: "/logos/spacex.png",
+    fill: "#FFFFFF",
     ink: "#fff",
     desc: "Launch & satellites",
     about: "Reusable rockets and Starlink satellite internet.",
@@ -66,7 +71,8 @@ export const COMPANIES: Company[] = [
     symbol: "NEURALINK",
     name: "Neuralink",
     mono: "NL",
-    fill: "#8FA3B8",
+    logo: "/logos/neuralink.png",
+    fill: "#F4F4F4",
     ink: "#0B1A2A",
     desc: "Brain–computer interfaces",
     about: "Implantable brain–computer interfaces.",
@@ -77,7 +83,8 @@ export const COMPANIES: Company[] = [
     symbol: "ANDURIL",
     name: "Anduril",
     mono: "AD",
-    fill: "#3B4A3A",
+    logo: "/logos/anduril.png",
+    fill: "#FFFFFF",
     ink: "#EAF0E6",
     desc: "Defense tech",
     about: "Autonomous defense systems and sensors.",
@@ -88,7 +95,8 @@ export const COMPANIES: Company[] = [
     symbol: "FIGUREAI",
     name: "Figure AI",
     mono: "FG",
-    fill: "#F2A65A",
+    logo: "/logos/figureai.png",
+    fill: "#000000",
     ink: "#3A1C00",
     desc: "Humanoid robots",
     about: "General-purpose humanoid robots.",
@@ -99,7 +107,8 @@ export const COMPANIES: Company[] = [
     symbol: "KALSHI",
     name: "Kalshi",
     mono: "KA",
-    fill: "#12B886",
+    logo: "/logos/kalshi.png",
+    fill: "#FFFFFF",
     ink: "#fff",
     desc: "Event markets",
     about: "CFTC-regulated market for event contracts.",
@@ -110,7 +119,8 @@ export const COMPANIES: Company[] = [
     symbol: "POLYMARKET",
     name: "Polymarket",
     mono: "PM",
-    fill: "#3D6BFF",
+    logo: "/logos/polymarket.png",
+    fill: "#2F5CFF",
     ink: "#fff",
     desc: "Prediction markets",
     about: "Crypto-native prediction market.",

@@ -369,3 +369,9 @@ img { max-width: 100%; }
 .lb-picks { min-width: 0; }
 .lb-picks .picks-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .foot-inner nav a { white-space: nowrap; }
+
+/* ---------- Company logos (official PreStocks artwork) ---------- */
+.logo, .kit-shirt { position: relative; overflow: hidden; }
+.co-img { object-fit: cover; pointer-events: none; user-select: none; }
+.kit-shirt .co-img { border-radius: 18px; }
+.logos .logo + .logo { margin-left: -4px; }

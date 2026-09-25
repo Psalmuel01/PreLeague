@@ -10,7 +10,7 @@ import { usePlayer } from "@/lib/hooks/usePlayer";
 import { useGame } from "@/components/providers/GameProvider";
 import { PageSkeleton, Shell } from "@/components/shell/Shell";
 import { managerCount } from "@/components/league/LeagueFacts";
-import { Achv, Avatar, Badge, Clock, CoLogo, Progress } from "@/components/ui/bits";
+import { Achv, Avatar, Badge, Clock, CoImg, CoLogo, Progress } from "@/components/ui/bits";
 import { Icon } from "@/components/ui/Icon";
 
 export function LobbyView({ slug }: { slug: string }) {
@@ -183,9 +183,7 @@ export function LobbyView({ slug }: { slug: string }) {
                     return (
                       <li key={id} className="kit">
                         <div className="kit-shirt" style={{ background: c.fill }}>
-                          <span className="mono-mark" style={{ color: c.ink }}>
-                            {c.mono}
-                          </span>
+                          <CoImg id={c.id} size={80} />
                         </div>
                         <div className="plate">
                           <div className="n">{c.name}</div>

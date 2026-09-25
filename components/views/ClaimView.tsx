@@ -9,7 +9,7 @@ import { useRound } from "@/lib/hooks/useRound";
 import { usePlayer } from "@/lib/hooks/usePlayer";
 import { useGame } from "@/components/providers/GameProvider";
 import { PageSkeleton, Shell } from "@/components/shell/Shell";
-import { Achv, Badge, Medal } from "@/components/ui/bits";
+import { Achv, Badge, CoImg, Medal } from "@/components/ui/bits";
 import { Icon } from "@/components/ui/Icon";
 
 const explorer = (sig: string, network: string) => `https://explorer.solana.com/tx/${sig}${network === "devnet" ? "?cluster=devnet" : ""}`;
@@ -114,9 +114,7 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
             <div className="row" style={{ gap: 18 }}>
               <div className="claim-medal">
                 <div className="kit-shirt" style={{ background: prize.fill }}>
-                  <span className="mono-mark" style={{ color: prize.ink }}>
-                    {prize.mono}
-                  </span>
+                  <CoImg id={prize.id} size={80} />
                 </div>
               </div>
               <div className="stack" style={{ gap: 6 }}>

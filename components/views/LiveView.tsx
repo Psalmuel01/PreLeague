@@ -60,7 +60,7 @@ export function LiveView({ slug }: { slug: string }) {
   const movers = returns ? league.pool.map((id) => ({ id, r: returns[id] })).sort((a, b) => b.r - a.r) : [];
   const leader = standings?.[0] ?? null;
   const focus: Standing | null = you ?? leader;
-  const avg = standings ? standings.reduce((s, x) => s + x.portfolioReturn, 0) / standings.length : null;
+  const avg = standings?.length ? standings.reduce((s, x) => s + x.portfolioReturn, 0) / standings.length : null;
   const prizeName = COMPANY_BY_ID[league.prize.company].name;
 
   return (
@@ -168,7 +168,7 @@ export function LiveView({ slug }: { slug: string }) {
             <div className="stat-box hide-sm" style={{ padding: "16px 20px" }}>
               <span className="k">Average</span>
               <span className="v stat-v">{avg !== null ? pct(avg) : "—"}</span>
-              <span className="stat-note">Across all {view.managers.length} managers</span>
+              <span className="stat-note">{view.managers.length ? `Across all ${view.managers.length} managers` : "No squads in this round"}</span>
             </div>
             <div className="stat-box" style={{ padding: "16px 20px" }}>
               <span className="k">Highest</span>
