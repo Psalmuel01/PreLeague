@@ -16,12 +16,15 @@ import {
   type Mint,
 } from "@solana/spl-token";
 import { COMPANY_BY_ID, type CompanyId } from "@/lib/companies";
+import { prizeNetwork } from "@/lib/network";
 import { logJob, q } from "./db";
 import { getLeague } from "./rounds";
 
-// Prize payouts on Solana mainnet: the winner receives the league's prize
-// company PreStock (Token-2022) from the server's prize wallet
-// (PRIZE_AUTHORITY_SECRET). Custodial for now; an on-chain vault replaces it later.
+// Prize payouts from the server's prize wallet (PRIZE_AUTHORITY_SECRET).
+// Custodial for now; an on-chain vault replaces it later.
+//   devnet  (default): a mock prize token (PRIZE_MINT) made by `npm run prize:setup`.
+//   mainnet: the real PreStock (Token-2022) of the league's prize company.
+// NEXT_PUBLIC_PRIZE_NETWORK picks the cluster.
 //
 // Safety:
 // - Never a partial payout: the wallet must hold the full prize (plus SOL for fees).
@@ -37,7 +40,14 @@ export function prizeWallet(): Keypair | null {
 }
 
 export function prizeConnection(): Connection {
-  return new Connection(process.env.PRIZE_RPC_URL || "https://api.mainnet-beta.solana.com", "confirmed");
+  const fallback = prizeNetwork() === "mainnet" ? "https://api.mainnet-beta.solana.com" : "https://api.devnet.solana.com";
+  return new Connection(process.env.PRIZE_RPC_URL || fallback, "confirmed");
+}
+
+/** The token paid for a company's prize: its PreStock on mainnet, the mock prize token on devnet. */
+export function prizeMintAddress(company: CompanyId): PublicKey | null {
+  if (prizeNetwork() === "mainnet") return new PublicKey(COMPANY_BY_ID[company].mint);
+  return process.env.PRIZE_MINT ? new PublicKey(process.env.PRIZE_MINT) : null;
 }
 
 /** Displayed (UI) token amounts = raw × the mint's scaled-UI multiplier. PreStocks prices are per displayed token. */
@@ -48,41 +58,43 @@ export function uiMultiplier(mint: Mint): number {
   return cfg.newMultiplierEffectiveTimestamp > BigInt(0) && now >= cfg.newMultiplierEffectiveTimestamp ? cfg.newMultiplier : cfg.multiplier;
 }
 
-export async function loadMint(connection: Connection, company: CompanyId) {
-  const mintKey = new PublicKey(COMPANY_BY_ID[company].mint);
+export async function loadMint(connection: Connection, mintKey: PublicKey) {
   const info = await connection.getAccountInfo(mintKey);
-  if (!info) throw new Error(`${COMPANY_BY_ID[company].symbol} mint not found`);
+  if (!info) throw new Error(`Prize mint ${mintKey.toBase58()} not found on ${prizeNetwork()}`);
   const programId = info.owner.equals(TOKEN_2022_PROGRAM_ID) ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
   return { mintKey, programId, mint: await getMint(connection, mintKey, "confirmed", programId) };
 }
 
 export type ClaimResult = { status: "sent" | "pending" | "failed"; tx?: string | null; error?: string | null };
 
-type ClaimRow = { status: "pending" | "sent" | "failed"; tx_signature: string | null; last_valid_block_height: string | null };
+type ClaimRow = { status: "pending" | "sent" | "failed"; tx_signature: string | null; last_valid_block_height: string | null; network: string };
 
 export async function claimPrize(leagueId: string, wallet: string): Promise<ClaimResult> {
   const league = await getLeague(leagueId);
   if (!league || league.status !== "completed") return { status: "failed", error: "This league hasn’t been settled yet" };
   if (league.winner_wallet !== wallet) return { status: "failed", error: "Only the winner can claim this prize" };
   const authority = prizeWallet();
-  if (!authority) return { status: "failed", error: "Prize payouts aren’t configured on this server" };
+  const prizeMint = prizeMintAddress(league.prize_symbol);
+  if (!authority || !prizeMint) return { status: "failed", error: "Prize payouts aren’t configured on this server" };
   const connection = prizeConnection();
 
   // Existing claim? Resolve it against the chain before doing anything new.
-  const [existing] = await q<ClaimRow>(`select status, tx_signature, last_valid_block_height from prize_claims where league_id = $1`, [leagueId]);
+  const [existing] = await q<ClaimRow>(`select status, tx_signature, last_valid_block_height, network from prize_claims where league_id = $1`, [leagueId]);
   if (existing?.status === "sent") return { status: "sent", tx: existing.tx_signature };
   if (existing?.status === "pending" && existing.tx_signature) {
+    // Sent on the other cluster before a network switch: only that cluster can resolve it.
+    if (existing.network !== prizeNetwork()) return { status: "pending", tx: existing.tx_signature, error: `This claim is waiting on Solana ${existing.network}` };
     const resolved = await resolvePending(connection, leagueId, existing);
     if (resolved) return resolved;
   }
 
   // Take (or retake) the claim.
   const [claim] = await q<{ status: string }>(
-    `insert into prize_claims (league_id, wallet, status, network) values ($1, $2, 'pending', 'mainnet')
-     on conflict (league_id) do update set status = 'pending', error = null, tx_signature = null, last_valid_block_height = null, updated_at = now()
+    `insert into prize_claims (league_id, wallet, status, network) values ($1, $2, 'pending', $3)
+     on conflict (league_id) do update set status = 'pending', error = null, network = excluded.network, tx_signature = null, last_valid_block_height = null, updated_at = now()
        where prize_claims.status = 'failed'
      returning status`,
-    [leagueId, wallet],
+    [leagueId, wallet, prizeNetwork()],
   );
   if (!claim) return { status: "pending", error: "This claim is already being processed" };
 
@@ -92,7 +104,7 @@ export async function claimPrize(leagueId: string, wallet: string): Promise<Clai
     const price = league.end_prices?.[symbol];
     if (!price) throw new UserError(`No settlement price for ${symbol}`);
 
-    const { mintKey, programId, mint } = await loadMint(connection, league.prize_symbol);
+    const { mintKey, programId, mint } = await loadMint(connection, prizeMint);
     // USD → displayed tokens → raw units (undo the display multiplier).
     const amount = BigInt(Math.floor((Number(league.prize_usd) / price / uiMultiplier(mint)) * 10 ** mint.decimals));
     if (amount <= BigInt(0)) throw new UserError("Prize amount rounds to zero");
@@ -100,7 +112,7 @@ export async function claimPrize(leagueId: string, wallet: string): Promise<Clai
     const from = getAssociatedTokenAddressSync(mintKey, authority.publicKey, false, programId);
     const to = getAssociatedTokenAddressSync(mintKey, new PublicKey(wallet), false, programId);
     const balance = await getAccount(connection, from, "confirmed", programId).then((a) => a.amount, () => BigInt(0));
-    if (balance < amount) throw new UserError(`The prize wallet doesn’t hold enough ${symbol} for this prize yet`);
+    if (balance < amount) throw new UserError(`The prize wallet doesn’t hold enough ${symbol}${prizeNetwork() === "devnet" ? " (devnet)" : ""} for this prize yet`);
     const lamports = await connection.getBalance(authority.publicKey);
     if (lamports < MIN_SOL_FOR_CLAIM * LAMPORTS_PER_SOL) throw new UserError("The prize wallet needs a little SOL to pay network fees");
 

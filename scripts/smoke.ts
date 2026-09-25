@@ -120,12 +120,19 @@ async function main() {
   const notMine = await loser.call(`/api/leagues/${id}/claim`, {});
   assert(notMine.status === 400, `${loser.name} (not the winner) can't claim`);
 
-  // Real mainnet prize transfer: opt in with SMOKE_CLAIM=1 (spends the prize wallet's tokens).
-  if (process.env.SMOKE_CLAIM === "1") {
+  // Prize transfer: on by default on devnet (when PRIZE_MINT is set); on mainnet it spends
+  // real tokens, so it needs SMOKE_CLAIM=1.
+  const mainnet = process.env.NEXT_PUBLIC_PRIZE_NETWORK === "mainnet";
+  if (mainnet ? process.env.SMOKE_CLAIM === "1" : Boolean(process.env.PRIZE_MINT)) {
     const winner = [alice, bob].find((p) => p.wallet === final.json.winnerWallet);
     if (winner) {
-      const paid = await winner.call(`/api/leagues/${id}/claim`, {});
-      assert(paid.json.status === "sent" && Boolean(paid.json.tx), `${winner.name} claims the prize on mainnet (tx ${String(paid.json.tx).slice(0, 12)}…)`, paid.json);
+      let paid = await winner.call(`/api/leagues/${id}/claim`, {});
+      // A slow RPC confirmation leaves the claim pending; asking again resolves it from the chain.
+      for (let i = 0; i < 6 && paid.json.status === "pending"; i++) {
+        await new Promise((r) => setTimeout(r, 5000));
+        paid = await winner.call(`/api/leagues/${id}/claim`, {});
+      }
+      assert(paid.json.status === "sent" && Boolean(paid.json.tx), `${winner.name} claims the prize on ${mainnet ? "mainnet" : "devnet"} (tx ${String(paid.json.tx).slice(0, 12)}…)`, paid.json);
       const twice = await winner.call(`/api/leagues/${id}/claim`, {});
       assert(twice.json.status === "sent" && twice.json.tx === paid.json.tx, "second claim returns the same transfer, no double payout");
     } else {

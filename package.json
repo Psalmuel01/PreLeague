@@ -10,7 +10,8 @@
     "test": "vitest run",
     "db:migrate": "tsx --env-file-if-exists=.env.local scripts/migrate.ts",
     "smoke": "tsx --env-file-if-exists=.env.local scripts/smoke.ts",
-    "prize:wallet": "tsx --env-file-if-exists=.env.local scripts/prize-wallet.ts"
+    "prize:wallet": "tsx --env-file-if-exists=.env.local scripts/prize-wallet.ts",
+    "prize:setup": "tsx --env-file-if-exists=.env.local scripts/prize-setup.ts"
   },
   "dependencies": {
     "@solana/spl-token": "^0.4.15",

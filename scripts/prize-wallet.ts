@@ -1,5 +1,5 @@
-// Shows the mainnet prize wallet: its address (fund this), SOL, PreStock
-// balances, and whether each league's prize is covered. Usage: npm run prize:wallet
+// Shows the prize wallet: its address (fund this), SOL, and prize token balances.
+// On mainnet it also checks whether each league's prize is covered. Usage: npm run prize:wallet
 import bs58 from "bs58";
 import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, getAccount, getAssociatedTokenAddressSync, getMint, getScaledUiAmountConfig } from "@solana/spl-token";
@@ -16,9 +16,19 @@ async function main() {
     return;
   }
   const wallet = Keypair.fromSecretKey(bs58.decode(secret)).publicKey;
-  const connection = new Connection(process.env.PRIZE_RPC_URL || "https://api.mainnet-beta.solana.com", "confirmed");
-  console.log(`Prize wallet (mainnet): ${wallet.toBase58()}`);
+  const mainnet = process.env.NEXT_PUBLIC_PRIZE_NETWORK === "mainnet";
+  const connection = new Connection(process.env.PRIZE_RPC_URL || (mainnet ? "https://api.mainnet-beta.solana.com" : "https://api.devnet.solana.com"), "confirmed");
+  console.log(`Prize wallet (${mainnet ? "mainnet" : "devnet"}): ${wallet.toBase58()}`);
   console.log(`SOL: ${(await connection.getBalance(wallet)) / LAMPORTS_PER_SOL}  (keep ≥ 0.0025 per claim for fees + the winner's token account)`);
+
+  if (!mainnet) {
+    if (!process.env.PRIZE_MINT) return console.log("No PRIZE_MINT yet: run `npm run prize:setup`.");
+    const mintKey = new PublicKey(process.env.PRIZE_MINT);
+    const mint = await getMint(connection, mintKey);
+    const raw = await getAccount(connection, getAssociatedTokenAddressSync(mintKey, wallet)).then((a) => a.amount, () => BigInt(0));
+    console.log(`Mock prize token ${mintKey.toBase58()}: ${Number(raw) / 10 ** mint.decimals}`);
+    return;
+  }
 
   const prices: Record<string, number> = {};
   try {
