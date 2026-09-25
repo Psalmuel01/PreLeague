@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PreLeague
 
-## Getting Started
+Fantasy sports for private companies. Draft three PreStocks, compete on their real market performance, and win actual PreStocks on Solana.
 
-First, run the development server:
+## Run it
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000
+npm test           # scoring engine unit tests
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000/?demo` to show the **demo panel** (bottom right). It can jump the clock to the deadline, kick-off or final whistle, and switch to **simulated prices** so rankings visibly move in a short video. Simulated prices are labelled everywhere they appear. `?demo=0` hides the panel again.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Screens
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Route | Screen |
+| --- | --- |
+| `/` | Home: hero, featured league, draft pool, live table |
+| `/leagues` | Live / Upcoming / Completed leagues, your level |
+| `/league/[slug]` | Lobby: rules, draft pool, managers |
+| `/league/[slug]/draft` | Pick your 3 (sticky tray + sheet on mobile) |
+| `/league/[slug]/locked` | Squad locked, shareable team sheet |
+| `/league/[slug]/live` | Live table, squad breakdown drawer, market movers, company sheet |
+| `/league/[slug]/results` | Podium, your result, XP, final table, transparent scoring |
+| `/league/[slug]/claim` | Prize claim |
+| `/profile` | Level, stats, achievements, history, active leagues |
+| `/how-it-works` | Steps, scoring, full rules, FAQ |
 
-## Learn More
+The UI follows the "Matchday" design system from the design canvas. `app/pl.css` is that stylesheet verbatim; `app/globals.css` adapts the fixed artboards to real breakpoints (1440 → 1024 → 768 → 390 → 375).
 
-To learn more about Next.js, take a look at the following resources:
+## How it works
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Prices:** `GET /api/prices` proxies the PreStocks API (`tokenPrice`, `markPrice`, mint) and records snapshots in memory. `GET /api/cron/prices` takes a snapshot on a schedule (protect it with `CRON_SECRET`). If the API is unreachable, the last known prices are served and flagged as such.
+- **Scoring** (`lib/scoring.ts`, tested): return = (end − start) ÷ start; squad = equal-weight average. Boundary prices average the first/last snapshots of the round, and a stale boundary throws instead of scoring. Tie-breaks: best pick → second-best pick → earlier lock.
+- **Rounds** (`lib/leagues.ts`): Stocklana Sprint runs every 30 minutes (15-minute round). Opponents are demo managers whose returns come from the same prices as yours.
+- **Lineups** are signed with the connected wallet (message signature, no transaction). They are stored in the browser for now.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Not built yet
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Supabase persistence for `price_snapshots`, `entries` and `results`. The in-memory store in `lib/snapshots.ts` has the same shape.
+- The Anchor prize vault (`create_league` / `settle` / `claim`). Until `NEXT_PUBLIC_PRIZE_VAULT_PROGRAM_ID` is set, claiming is disabled, or simulated in demo mode.
+- Real opponents. The other managers are seeded demo players.
