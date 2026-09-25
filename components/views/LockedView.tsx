@@ -196,7 +196,7 @@ export function LockedView({ slug }: { slug: string }) {
                     Think you can beat it?
                   </span>
                   <span className="mono hide-sm" style={{ fontSize: 12, color: "var(--navy-ink-2)" }}>
-                    preleague.app
+                    preleague.vercel.app
                   </span>
                 </div>
               </div>
