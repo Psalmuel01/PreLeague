@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>Fantasy sports for private companies.</b><br>
-  Draft three PreStocks, compete on their real market performance, and win a PreStock prize on Solana.<br>
+  Draft three PreStocks, compete on their real market performance, and claim a prize on Solana.<br>
   <a href="https://preleague.vercel.app">Live app</a> · <a href="https://youtu.be/PZ7RTIi_1eY">Demo video</a>
 </p>
 
@@ -16,7 +16,7 @@
 
 ---
 
-Built for the Stocklana hackathon. [PreStocks](https://prestocks.com) are tokenized private companies on Solana: OpenAI, Anthropic, SpaceX, Neuralink, Anduril, Figure AI, Kalshi and Polymarket. PreLeague turns them into a game. Pick a squad of three before kick-off. Your score is their average price move over the round, and the best squad wins a real prize token.
+Built for the Stocklana hackathon. [PreStocks](https://prestocks.com) are Solana tokens that give exposure to private companies: OpenAI, Anthropic, SpaceX, Neuralink, Anduril, Figure AI, Kalshi and Polymarket. PreLeague turns them into a game. Pick a squad of three before kick-off. Your score is their average price move over the round, and the best real player claims the prize. The live demo pays it as a mock token on Solana devnet; the same code pays real PreStocks on mainnet and was tested once with a $1 Anthropic PreStock prize.
 
 Your squad is virtual. You never buy the companies you draft, and entry is free.
 
@@ -26,7 +26,7 @@ Your squad is virtual. You never buy the companies you draft, and entry is free.
 - **Live leagues on a schedule.** Rounds open, lock, go live and settle on their own, and each round is scored from live PreStocks prices.
 - **Live leaderboard.** Scores and ranks update every 10 seconds while a round runs.
 - **Fair settlement.** Kick-off and final prices are 3-snapshot averages. A stale or missing price sends the round to review instead of scoring it on bad data.
-- **On-chain prizes.** The winner claims a PreStock prize to their wallet: a mock token on devnet by default, or real PreStocks on mainnet.
+- **On-chain prizes.** The prize winner claims a PreStock prize to their wallet: a mock token on devnet by default, or real PreStocks on mainnet.
 - **Admin console.** Start, end, settle or cancel rounds, and add demo players for live demos. Demo players are labelled "Demo" and can never win the prize.
 
 ## Leagues
