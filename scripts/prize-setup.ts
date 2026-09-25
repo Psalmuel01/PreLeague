@@ -22,7 +22,7 @@ async function main() {
   if (balance < 0.2 * LAMPORTS_PER_SOL) {
     console.log("Requesting devnet airdrop…");
     try {
-      const sig = await connection.requestAirdrop(authority.publicKey, 1 * LAMPORTS_PER_SOL);
+      const sig = await connection.requestAirdrop(authority.publicKey, 0.5 * LAMPORTS_PER_SOL);
       await connection.confirmTransaction(sig, "confirmed");
     } catch (err) {
       console.error(

@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       case "end":
         return Response.json(await adminEndNow(leagueId!));
       case "settle":
-        return Response.json(await settleLeague(leagueId!));
+        return Response.json(await settleLeague(leagueId!, Date.now(), { retryReview: true }));
       case "cancel":
         await adminCancel(leagueId!);
         break;

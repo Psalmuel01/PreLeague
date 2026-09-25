@@ -43,7 +43,8 @@ export async function ensureRounds(now = Date.now()) {
     if (s.kind === "once") kickoffs.push(s.kickoff);
     else {
       const k = Math.floor((now - s.offsetMs) / s.periodMs);
-      for (let i = k - 1; i <= k + 2; i++) kickoffs.push(i * s.periodMs + s.offsetMs);
+      // Previous, current and the next four rounds (admin "start now" can use up upcoming ones).
+      for (let i = k - 1; i <= k + 4; i++) kickoffs.push(i * s.periodMs + s.offsetMs);
     }
     for (const kickoff of kickoffs) {
       const r = roundAt(def, kickoff, now);
@@ -68,11 +69,12 @@ export async function advance(now = Date.now()) {
 }
 
 /** Settle one league. Safe to call repeatedly; completed leagues are left untouched. */
-export async function settleLeague(id: string, now = Date.now()): Promise<{ status: LeagueStatus; reason?: string }> {
+export async function settleLeague(id: string, now = Date.now(), opts: { retryReview?: boolean } = {}): Promise<{ status: LeagueStatus; reason?: string }> {
   return tx(async (c) => {
     const [league] = (await c.query<LeagueRow>(`select * from leagues where id = $1 for update skip locked`, [id])).rows;
     if (!league) return { status: "settling" as LeagueStatus, reason: "busy" };
-    if (!["live", "settling"].includes(league.status)) return { status: league.status };
+    const settleable = ["live", "settling", ...(opts.retryReview ? ["review_required"] : [])];
+    if (!settleable.includes(league.status)) return { status: league.status };
 
     const symbols = league.pool.map((p) => COMPANY_BY_ID[p].symbol);
     const startsAt = league.starts_at.getTime();

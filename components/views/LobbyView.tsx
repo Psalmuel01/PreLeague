@@ -64,7 +64,7 @@ export function LobbyView({ slug }: { slug: string }) {
                 <Badge kind={inPlay.phase === "live" ? "live" : "done"}>{inPlay.phase === "live" ? "Live" : "Final"}</Badge>
               )}
               <span className="eyebrow" style={{ color: "var(--lime)", fontSize: 16 }}>
-                Round {(round ?? inPlay).round} · {league.format}
+                {(round ?? inPlay).round ? `Round ${(round ?? inPlay).round} · ` : ""}{league.format}
               </span>
             </div>
             <h1 className="h-1 t-page">{league.name}</h1>
