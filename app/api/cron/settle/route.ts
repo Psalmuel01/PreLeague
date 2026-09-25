@@ -1,4 +1,4 @@
-import { hasSecret } from "@/lib/server/auth";
+import { hasSecret } from "@/lib/server/session";
 import { advance, ensureRounds } from "@/lib/server/rounds";
 
 // Opens rounds at kick-off and settles finished ones. Idempotent; schedule every minute.

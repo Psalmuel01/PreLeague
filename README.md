@@ -51,8 +51,9 @@ Scoring (`lib/scoring.ts`, `lib/settlement.ts`): return = (end − start) ÷ sta
 No Vercel Cron is needed, because Hobby only allows daily crons.
 
 1. **Database:** create a Supabase project and set `DATABASE_URL` to its **transaction pooler** connection string (port 6543). Run `npm run db:migrate` once against it from your machine.
-2. **Vercel env vars:** `DATABASE_URL`, `ADMIN_SECRET`, `CRON_SECRET`, `PRIZE_AUTHORITY_SECRET`, `PRIZE_MINT`, `SOLANA_DEVNET_RPC_URL`. Leave `RUN_JOBS_IN_PROCESS` unset.
-3. **Keep prices flowing:** point a free per-minute pinger (e.g. [cron-job.org](https://cron-job.org)) at `GET https://<your-app>/api/cron/tick` with the header `Authorization: Bearer <CRON_SECRET>`.
+2. **Region:** `vercel.json` pins functions to `dub1` (Dublin) to sit next to a Supabase project in `eu-west-1`. If your database is elsewhere, change it to the nearest [Vercel region](https://vercel.com/docs/edge-network/regions). Every query crosses this gap.
+3. **Vercel env vars:** `DATABASE_URL`, `ADMIN_SECRET`, `CRON_SECRET`, `PRIZE_AUTHORITY_SECRET`, `PRIZE_MINT`, `SOLANA_DEVNET_RPC_URL`. Leave `RUN_JOBS_IN_PROCESS` unset.
+4. **Keep prices flowing:** point a free per-minute pinger (e.g. [cron-job.org](https://cron-job.org)) at `GET https://<your-app>/api/cron/tick` with the header `Authorization: Bearer <CRON_SECRET>`.
 
 Page views also keep things moving. When `/api/prices`, `/api/leagues` or `/api/series/*` is requested and the newest snapshot is older than about 50 seconds, the server runs the scheduler tick after sending the response. A lease in `job_lease` ensures only one runs at a time. The external pinger covers quiet periods, so rounds get kick-off and whistle prices even with nobody on the site.
 

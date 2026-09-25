@@ -1,6 +1,6 @@
 import type { CompanyId } from "@/lib/companies";
 import type { HistoryJSON, LeagueStatus, MeJSON } from "@/lib/api-types";
-import { sessionWallet } from "@/lib/server/auth";
+import { sessionWallet } from "@/lib/server/session";
 import { q } from "@/lib/server/db";
 import { avatarTone, displayName } from "@/lib/server/views";
 

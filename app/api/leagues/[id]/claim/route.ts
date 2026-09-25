@@ -1,4 +1,4 @@
-import { sessionWallet } from "@/lib/server/auth";
+import { sessionWallet } from "@/lib/server/session";
 import { claimPrize } from "@/lib/server/prize";
 
 // POST /api/leagues/:id/claim — winner only; sends the devnet prize token.

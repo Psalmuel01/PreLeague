@@ -1,4 +1,4 @@
-import { sessionWallet } from "@/lib/server/auth";
+import { sessionWallet } from "@/lib/server/session";
 import { q } from "@/lib/server/db";
 import { getLeague } from "@/lib/server/rounds";
 import { validatePicks } from "@/lib/settlement";

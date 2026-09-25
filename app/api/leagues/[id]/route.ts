@@ -1,4 +1,4 @@
-import { sessionWallet } from "@/lib/server/auth";
+import { sessionWallet } from "@/lib/server/session";
 import { getLeague } from "@/lib/server/rounds";
 import { roundView } from "@/lib/server/views";
 

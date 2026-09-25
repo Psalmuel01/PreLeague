@@ -1,4 +1,4 @@
-import { hasSecret } from "@/lib/server/auth";
+import { hasSecret } from "@/lib/server/session";
 import { tick } from "@/lib/server/rounds";
 
 // Everything in one call: schedule rounds, snapshot prices, advance/settle leagues.

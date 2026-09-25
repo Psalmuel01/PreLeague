@@ -1,4 +1,5 @@
 import "server-only";
+import { COMPANIES } from "@/lib/companies";
 import { fetchPriceBoard, type PriceBoard } from "@/lib/prestocks";
 import type { Snapshot } from "@/lib/scoring";
 import { logJob, q } from "./db";
@@ -42,9 +43,15 @@ export async function snapshotsBetween(symbols: string[], from: number, to: numb
 export type LatestQuote = { symbol: string; tokenPrice: number; markPrice: number | null; mint: string | null; capturedAt: number };
 
 export async function latestQuotes(): Promise<LatestQuote[]> {
+  // One index probe per symbol (stays fast as the snapshot table grows).
   const rows = await q<{ symbol: string; token_price: number; mark_price: number | null; mint: string | null; captured_at: Date }>(
-    `select distinct on (symbol) symbol, token_price, mark_price, mint, captured_at
-     from price_snapshots order by symbol, captured_at desc`,
+    `select s.symbol, p.token_price, p.mark_price, p.mint, p.captured_at
+     from unnest($1::text[]) as s(symbol)
+     cross join lateral (
+       select token_price, mark_price, mint, captured_at from price_snapshots
+       where symbol = s.symbol order by captured_at desc limit 1
+     ) p`,
+    [COMPANIES.map((c) => c.symbol)],
   );
   return rows.map((r) => ({ symbol: r.symbol, tokenPrice: r.token_price, markPrice: r.mark_price, mint: r.mint, capturedAt: r.captured_at.getTime() }));
 }

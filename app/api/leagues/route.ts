@@ -1,32 +1,43 @@
 import { after } from "next/server";
-import { LEAGUES } from "@/lib/leagues";
 import type { RoundSummary, SeriesJSON } from "@/lib/api-types";
-import { sessionWallet } from "@/lib/server/auth";
-import { seriesRounds, type LeagueRow, maybeTick } from "@/lib/server/rounds";
+import { sessionWallet } from "@/lib/server/session";
+import { q } from "@/lib/server/db";
+import { allSeriesRounds, maybeTick, type LeagueRow } from "@/lib/server/rounds";
 import { roundView } from "@/lib/server/views";
 
-async function summary(row: LeagueRow | null, viewer: string | null): Promise<RoundSummary | null> {
-  if (!row) return null;
-  const v = await roundView(row, viewer);
-  return {
-    id: v.id,
-    round: v.round,
-    status: v.status,
-    startsAt: v.startsAt,
-    endsAt: v.endsAt,
-    managers: v.managers.length,
-    joined: Boolean(v.entry),
-    leaders: (v.standings ?? []).slice(0, 3).map((s) => ({ name: s.name, initials: s.initials, avatar: s.avatar, you: s.you, portfolioReturn: s.portfolioReturn })),
-  };
-}
-
+// Every series with its live / next / last round. Counts come from one query;
+// full standings are only built for live rounds (for the "leading now" rows).
 export async function GET() {
   after(() => maybeTick());
-  const viewer = await sessionWallet();
-  const out: SeriesJSON[] = [];
-  for (const def of LEAGUES) {
-    const { live, next, last } = await seriesRounds(def.slug);
-    out.push({ slug: def.slug, live: await summary(live, viewer), next: await summary(next, viewer), last: await summary(last, viewer) });
-  }
+  const [viewer, series] = await Promise.all([sessionWallet(), allSeriesRounds()]);
+  const rows = series.flatMap((s) => [s.live, s.next, s.last]).filter((r): r is LeagueRow => Boolean(r));
+  const ids = [...new Set(rows.map((r) => r.id))];
+  const [counts, liveViews] = await Promise.all([
+    q<{ league_id: string; managers: number; joined: boolean }>(
+      `select league_id, count(*)::int as managers, bool_or(wallet = $2) as joined
+       from entries where league_id = any($1) group by league_id`,
+      [ids, viewer ?? ""],
+    ),
+    Promise.all(series.filter((s) => s.live).map((s) => roundView(s.live!, viewer))),
+  ]);
+  const byId = new Map(counts.map((c) => [c.league_id, c]));
+  const leaders = new Map(
+    liveViews.map((v) => [
+      v.id,
+      (v.standings ?? []).slice(0, 3).map((s) => ({ name: s.name, initials: s.initials, avatar: s.avatar, you: s.you, portfolioReturn: s.portfolioReturn })),
+    ]),
+  );
+  const summary = (r: LeagueRow | null): RoundSummary | null =>
+    r && {
+      id: r.id,
+      round: r.round,
+      status: r.status,
+      startsAt: r.starts_at.getTime(),
+      endsAt: r.ends_at.getTime(),
+      managers: byId.get(r.id)?.managers ?? 0,
+      joined: byId.get(r.id)?.joined ?? false,
+      leaders: leaders.get(r.id) ?? [],
+    };
+  const out: SeriesJSON[] = series.map((s) => ({ slug: s.slug, live: summary(s.live), next: summary(s.next), last: summary(s.last) }));
   return Response.json(out, { headers: { "cache-control": "no-store" } });
 }

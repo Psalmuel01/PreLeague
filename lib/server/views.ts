@@ -20,12 +20,32 @@ export function displayName(wallet: string, name: string | null): string {
 }
 
 export async function roundView(league: LeagueRow, viewer: string | null): Promise<RoundJSON> {
-  const entryRows = await q<{ wallet: string; picks: CompanyId[]; locked_at: Date; display_name: string | null; is_bot: boolean | null }>(
-    `select e.wallet, e.picks, e.locked_at, p.display_name, p.is_bot
-     from entries e left join profiles p on p.wallet = e.wallet
-     where e.league_id = $1 order by e.locked_at`,
-    [league.id],
-  );
+  const symbolsAll = league.pool.map((p) => COMPANY_BY_ID[p].symbol);
+  const startsAtMs = league.starts_at.getTime();
+  const isFinal = league.status === "completed" && league.start_prices && league.end_prices;
+  const isLiveish = !isFinal && Date.now() >= startsAtMs && ["live", "settling", "review_required", "upcoming"].includes(league.status);
+  const [entryRows, resultRows, snapRows, quoteRows, claimRows] = await Promise.all([
+    q<{ wallet: string; picks: CompanyId[]; locked_at: Date; display_name: string | null; is_bot: boolean | null }>(
+      `select e.wallet, e.picks, e.locked_at, p.display_name, p.is_bot
+       from entries e left join profiles p on p.wallet = e.wallet
+       where e.league_id = $1 order by e.locked_at`,
+      [league.id],
+    ),
+    isFinal
+      ? q<{ wallet: string; rank: number; score: number; pick_returns: number[] }>(
+          `select wallet, rank, score, pick_returns from results where league_id = $1 order by rank`,
+          [league.id],
+        )
+      : Promise.resolve([]),
+    isLiveish ? snapshotsBetween(symbolsAll, startsAtMs, startsAtMs + SCORING.maxStalenessMs) : Promise.resolve([]),
+    isLiveish ? latestQuotes() : Promise.resolve([]),
+    viewer
+      ? q<{ wallet: string; status: string; tx_signature: string | null; error: string | null; network: string }>(
+          `select wallet, status, tx_signature, error, network from prize_claims where league_id = $1`,
+          [league.id],
+        )
+      : Promise.resolve([]),
+  ]);
   const managers: ManagerJSON[] = entryRows.map((e) => {
     const name = displayName(e.wallet, e.display_name);
     return {
@@ -44,8 +64,8 @@ export async function roundView(league: LeagueRow, viewer: string | null): Promi
   const popularity: Record<string, number> = {};
   for (const id of league.pool) popularity[id] = managers.length ? managers.filter((m) => m.picks.includes(id)).length / managers.length : 0;
 
-  const symbols = league.pool.map((p) => COMPANY_BY_ID[p].symbol);
-  const startsAt = league.starts_at.getTime();
+  const symbols = symbolsAll;
+  const startsAt = startsAtMs;
   const endsAt = league.ends_at.getTime();
   const now = Date.now();
 
@@ -59,24 +79,18 @@ export async function roundView(league: LeagueRow, viewer: string | null): Promi
     start = league.start_prices;
     current = league.end_prices;
     nowAt = endsAt;
-    const results = await q<{ wallet: string; rank: number; score: number; pick_returns: number[] }>(
-      `select wallet, rank, score, pick_returns from results where league_id = $1 order by rank`,
-      [league.id],
-    );
     const byWallet = Object.fromEntries(managers.map((m) => [m.id, m]));
-    standings = results
+    standings = resultRows
       .filter((r) => byWallet[r.wallet])
       .map((r) => ({ ...byWallet[r.wallet], rank: r.rank, portfolioReturn: r.score, pickReturns: r.pick_returns }));
   } else if (now >= startsAt && ["live", "settling", "review_required", "upcoming"].includes(league.status)) {
-    const snaps = await snapshotsBetween(symbols, startsAt, startsAt + SCORING.maxStalenessMs);
     try {
-      start = Object.fromEntries(symbols.map((s) => [s, startPrice(snaps, s, startsAt, SCORING)]));
+      start = Object.fromEntries(symbols.map((s) => [s, startPrice(snapRows, s, startsAt, SCORING)]));
     } catch {
       start = null; // kick-off prices not recorded yet (or missing: round will go to review)
     }
-    const quotes = await latestQuotes();
     const until = Math.min(now, endsAt);
-    const relevant = quotes.filter((x) => symbols.includes(x.symbol));
+    const relevant = quoteRows.filter((x) => symbols.includes(x.symbol));
     if (relevant.length === symbols.length) {
       current = Object.fromEntries(relevant.map((x) => [x.symbol, x.tokenPrice]));
       nowAt = Math.min(...relevant.map((x) => x.capturedAt));
@@ -98,12 +112,7 @@ export async function roundView(league: LeagueRow, viewer: string | null): Promi
     }
   }
 
-  const claimRow = viewer
-    ? (await q<{ wallet: string; status: string; tx_signature: string | null; error: string | null; network: string; amount_raw: string | null }>(
-        `select wallet, status, tx_signature, error, network, amount_raw from prize_claims where league_id = $1`,
-        [league.id],
-      ))[0]
-    : undefined;
+  const claimRow = claimRows[0];
 
   return {
     id: league.id,

@@ -1,4 +1,4 @@
-import { logout } from "@/lib/server/auth";
+import { logout } from "@/lib/server/session";
 
 export async function POST() {
   await logout();

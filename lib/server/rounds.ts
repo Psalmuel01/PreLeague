@@ -35,8 +35,9 @@ const REVIEW_AFTER_MS = 10 * 60_000;
 
 export const leagueId = (series: string, round: number) => `${series}-r${round}`;
 
-/** Create league rows for the rounds around `now` (idempotent). */
+/** Create league rows for the rounds around `now` (idempotent, one statement). */
 export async function ensureRounds(now = Date.now()) {
+  const rows: unknown[][] = [];
   for (const def of LEAGUES) {
     const s = def.schedule;
     const kickoffs: number[] = [];
@@ -48,14 +49,25 @@ export async function ensureRounds(now = Date.now()) {
     }
     for (const kickoff of kickoffs) {
       const r = roundAt(def, kickoff, now);
-      await q(
-        `insert into leagues (id, series, round, name, starts_at, ends_at, max_players, pool, prize_symbol, prize_usd)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         on conflict (series, round) do nothing`,
-        [leagueId(def.slug, r.round), def.slug, r.round, def.name, new Date(r.kickoff), new Date(r.endsAt), def.capacity, def.pool, def.prize.company, def.prize.usd],
-      );
+      rows.push([leagueId(def.slug, r.round), def.slug, r.round, def.name, new Date(r.kickoff), new Date(r.endsAt), def.capacity, `{${def.pool.join(",")}}`, def.prize.company, def.prize.usd]);
     }
   }
+  const col = (i: number) => rows.map((r) => r[i]);
+  await q(
+    `insert into leagues (id, series, round, name, starts_at, ends_at, max_players, pool, prize_symbol, prize_usd)
+     select id, series, round, name, starts_at, ends_at, max_players, pool::text[], prize_symbol, prize_usd from unnest($1::text[], $2::text[], $3::int[], $4::text[], $5::timestamptz[], $6::timestamptz[], $7::int[], $8::text[], $9::text[], $10::numeric[])
+       as t(id, series, round, name, starts_at, ends_at, max_players, pool, prize_symbol, prize_usd)
+     on conflict (series, round) do nothing`,
+    [col(0), col(1), col(2), col(3), col(4), col(5), col(6), col(7), col(8), col(9)],
+  );
+}
+
+// Reads call this; it only touches the database once a minute per server instance.
+const ensured = globalThis as unknown as { __preleagueEnsuredAt?: number };
+async function ensureRoundsThrottled(now = Date.now()) {
+  if (ensured.__preleagueEnsuredAt && now - ensured.__preleagueEnsuredAt < 60_000) return;
+  ensured.__preleagueEnsuredAt = now;
+  await ensureRounds(now);
 }
 
 /** upcoming → live at kick-off; live → settled (or review) after the whistle. */
@@ -162,15 +174,33 @@ export async function getLeague(id: string): Promise<LeagueRow | null> {
   return (await q<LeagueRow>(`select * from leagues where id = $1`, [id]))[0] ?? null;
 }
 
-/** The round of a series a page should show: live, next open, or last finished. */
-export async function seriesRounds(series: string, now = Date.now()) {
-  await ensureRounds(now);
-  const rows = await q<LeagueRow>(`select * from leagues where series = $1 and status <> 'cancelled' order by starts_at`, [series]);
+function pickRounds(rows: LeagueRow[], now: number) {
   const t = new Date(now);
   const live = rows.find((r) => r.status === "live" || (r.status === "upcoming" && r.starts_at <= t && r.ends_at > t)) ?? null;
   const next = rows.find((r) => r.status === "upcoming" && r.starts_at > t) ?? null;
   const last = [...rows].reverse().find((r) => ["completed", "review_required", "settling"].includes(r.status) || (r.status === "live" && r.ends_at <= t)) ?? null;
   return { live, next, last };
+}
+
+/** The round of a series a page should show: live, next open, or last finished. */
+export async function seriesRounds(series: string, now = Date.now()) {
+  await ensureRoundsThrottled(now);
+  const rows = await q<LeagueRow>(
+    `select * from leagues where series = $1 and status <> 'cancelled' and starts_at > now() - interval '8 days' order by starts_at`,
+    [series],
+  );
+  return pickRounds(rows, now);
+}
+
+/** live / next / last for every series, in one query. */
+export async function allSeriesRounds(now = Date.now()) {
+  await ensureRoundsThrottled(now);
+  const rows = await q<LeagueRow>(
+    `select * from leagues where status <> 'cancelled' and starts_at > now() - interval '8 days' order by starts_at`,
+  );
+  const bySeries = new Map<string, LeagueRow[]>();
+  for (const r of rows) bySeries.set(r.series, [...(bySeries.get(r.series) ?? []), r]);
+  return LEAGUES.map((def) => ({ slug: def.slug, ...pickRounds(bySeries.get(def.slug) ?? [], now) }));
 }
 
 export function seriesDef(series: string): League | undefined {

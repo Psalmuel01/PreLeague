@@ -18,7 +18,11 @@ export function pool(): Pool {
 }
 
 export async function q<T extends QueryResultRow>(text: string, params: unknown[] = []): Promise<T[]> {
-  return (await pool().query<T>(text, params)).rows;
+  if (!process.env.DEBUG_SQL) return (await pool().query<T>(text, params)).rows;
+  const t0 = performance.now();
+  const rows = (await pool().query<T>(text, params)).rows;
+  console.log("[sql]", `${(performance.now() - t0).toFixed(1)}ms`, text.replace(/\s+/g, " ").slice(0, 70));
+  return rows;
 }
 
 export async function tx<T>(fn: (c: PoolClient) => Promise<T>): Promise<T> {

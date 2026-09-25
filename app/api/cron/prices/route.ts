@@ -1,4 +1,4 @@
-import { hasSecret } from "@/lib/server/auth";
+import { hasSecret } from "@/lib/server/session";
 import { collectPrices } from "@/lib/server/prices";
 
 // Price collector. Schedule every minute; send `Authorization: Bearer $CRON_SECRET`.

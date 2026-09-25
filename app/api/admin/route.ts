@@ -1,4 +1,4 @@
-import { hasSecret } from "@/lib/server/auth";
+import { hasSecret } from "@/lib/server/session";
 import { q } from "@/lib/server/db";
 import { collectPrices } from "@/lib/server/prices";
 import { adminCancel, adminEndNow, adminSeedBots, adminStartNow, settleLeague, tick } from "@/lib/server/rounds";

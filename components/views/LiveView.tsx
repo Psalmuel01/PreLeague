@@ -224,7 +224,7 @@ export function LiveView({ slug }: { slug: string }) {
                   </div>
                 </>
               ) : (
-                <WaitingForPrices />
+                <WaitingForPrices kickoff={round.kickoff} />
               )}
             </section>
 
@@ -258,7 +258,7 @@ export function LiveView({ slug }: { slug: string }) {
                   })}
                 </div>
               ) : (
-                <WaitingForPrices />
+                <WaitingForPrices kickoff={round.kickoff} />
               )}
             </section>
 
@@ -283,7 +283,7 @@ export function LiveView({ slug }: { slug: string }) {
                   Prices haven’t updated since {view.nowAt ? timeOfDay(view.nowAt) : "kick-off"}. If fresh prices don’t arrive by the final whistle, this round goes to review instead of being scored on old data.
                 </div>
               )}
-              {standings ? <LeagueTable rows={standings} mode="live" limit={10} /> : <WaitingForPrices />}
+              {standings ? <LeagueTable rows={standings} mode="live" limit={10} /> : <WaitingForPrices kickoff={round.kickoff} />}
             </section>
 
             {leader && (
@@ -341,11 +341,27 @@ export function LiveView({ slug }: { slug: string }) {
   );
 }
 
-function WaitingForPrices() {
+const KICKOFF_WINDOW_MS = 3 * 60_000;
+
+/** No kick-off prices yet: either they're about to land, or the window was missed. */
+function WaitingForPrices({ kickoff }: { kickoff: number }) {
+  const { now } = useGame();
+  if (now - kickoff < KICKOFF_WINDOW_MS) {
+    return (
+      <div className="empty-state">
+        <span className="spinner spinner-dark" aria-hidden="true" />
+        <p className="title">Waiting for kick-off prices…</p>
+        <p className="small muted">Starting prices come from the first PreStocks snapshots after kick-off. The table fills in within a minute.</p>
+      </div>
+    );
+  }
   return (
     <div className="empty-state">
-      <span className="spinner spinner-dark" aria-hidden="true" />
-      <p className="small muted">Waiting for kick-off prices…</p>
+      <Icon name="warning" size="lg" style={{ color: "var(--ink-3)" }} />
+      <p className="title">No kick-off prices for this round</p>
+      <p className="small muted" style={{ maxWidth: 440 }}>
+        Price collection wasn’t running in the first 3 minutes after kick-off, so this round can’t be scored fairly. It will go to review instead of using stale prices. The next round starts fresh.
+      </p>
     </div>
   );
 }
