@@ -120,11 +120,12 @@ async function main() {
   const notMine = await loser.call(`/api/leagues/${id}/claim`, {});
   assert(notMine.status === 400, `${loser.name} (not the winner) can't claim`);
 
-  if (process.env.PRIZE_MINT) {
+  // Real mainnet prize transfer: opt in with SMOKE_CLAIM=1 (spends the prize wallet's tokens).
+  if (process.env.SMOKE_CLAIM === "1") {
     const winner = [alice, bob].find((p) => p.wallet === final.json.winnerWallet);
     if (winner) {
       const paid = await winner.call(`/api/leagues/${id}/claim`, {});
-      assert(paid.json.status === "sent" && Boolean(paid.json.tx), `${winner.name} claims the prize on devnet (tx ${String(paid.json.tx).slice(0, 12)}…)`, paid.json);
+      assert(paid.json.status === "sent" && Boolean(paid.json.tx), `${winner.name} claims the prize on mainnet (tx ${String(paid.json.tx).slice(0, 12)}…)`, paid.json);
       const twice = await winner.call(`/api/leagues/${id}/claim`, {});
       assert(twice.json.status === "sent" && twice.json.tx === paid.json.tx, "second claim returns the same transfer, no double payout");
     } else {

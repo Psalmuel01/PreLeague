@@ -22,13 +22,29 @@ npm run smoke      # end-to-end API test against the running server
 npm run build
 ```
 
-### Devnet prizes
+### Prizes (Solana mainnet)
+
+Prizes are real PreStocks, sent from a server-held prize wallet on Solana mainnet.
 
 ```bash
-npm run prize:setup
+npm run prize:wallet
 ```
 
-This creates a prize wallet, funds it with devnet SOL, mints a mock `SPACEX` prize token, and writes `PRIZE_AUTHORITY_SECRET` / `PRIZE_MINT` to `.env.local`. If the devnet faucet is rate-limited, send devnet SOL to the printed address from https://faucet.solana.com and run it again. Until the mint exists, a winner's claim returns a clear "not configured" error.
+If `PRIZE_AUTHORITY_SECRET` isn't set, this prints a new one to put in `.env.local` (and Vercel). Otherwise it shows the wallet address, its SOL, its PreStock balances and whether each league's prize is covered.
+
+To fund it, send to the wallet address:
+
+- **SOL:** at least 0.0025 per claim. This pays the network fee and the winner's token account (~0.002 SOL rent) if they don't hold that PreStock yet.
+- **The prize PreStock** for each league you run, worth at least the prize in USD (see `prize` in `lib/leagues.ts`). PreStocks withhold a 1–3% transfer fee, so the winner receives slightly less than the prize value.
+
+How a claim pays out (`lib/server/prize.ts`):
+
+- USD → tokens at the settlement price, adjusted for the mint's display multiplier (for example SPACEX ×5 after its split).
+- It never sends a partial prize. If the wallet is short on tokens or SOL, the claim fails with a clear message and can be retried after funding.
+- It never pays twice. The signed transaction's signature is saved before sending. A retry checks that signature on-chain, and only sends again once the first transaction's blockhash has expired without landing.
+- Set `PRIZE_RPC_URL` to a private mainnet RPC for reliable sends. The public one rate-limits.
+
+`npm run smoke` skips the payout by default. Use `SMOKE_CLAIM=1 npm run smoke` only if you want it to spend real prize tokens.
 
 ## How a round works
 
@@ -38,7 +54,7 @@ This creates a prize wallet, funds it with devnet SOL, mints a mock `SPACEX` pri
 4. **Prices.** Every minute, all eight PreStocks `tokenPrice`s go into `price_snapshots`.
 5. **Live table.** The kick-off price is the average of the first 3 snapshots after the start. Returns and rank are recomputed from the latest snapshot. The page polls every 10 seconds.
 6. **Settlement.** After the whistle, the average of the last 3 snapshots is the end price. Results, prices and the winner are frozen in `results` and `leagues`. Re-running settlement is safe. If any company lacks a snapshot within 3 minutes of kick-off or the whistle, the round goes to `review_required` instead of being scored on stale data.
-7. **Prize.** The winner claims on the Claim page. The server sends the mock PreStock token on devnet and records the transaction in `prize_claims`.
+7. **Prize.** The winner claims on the Claim page. The server sends the prize PreStock on Solana mainnet to the winning wallet and records the transaction in `prize_claims`.
 
 Scoring (`lib/scoring.ts`, `lib/settlement.ts`): return = (end − start) ÷ start, and a squad's score is the equal-weight average of its three picks. Ties go to the best single pick, then the second-best pick, then the earlier lineup lock.
 
@@ -52,7 +68,7 @@ No Vercel Cron is needed, because Hobby only allows daily crons.
 
 1. **Database:** create a Supabase project and set `DATABASE_URL` to its **transaction pooler** connection string (port 6543). Run `npm run db:migrate` once against it from your machine.
 2. **Region:** `vercel.json` pins functions to `dub1` (Dublin) to sit next to a Supabase project in `eu-west-1`. If your database is elsewhere, change it to the nearest [Vercel region](https://vercel.com/docs/edge-network/regions). Every query crosses this gap.
-3. **Vercel env vars:** `DATABASE_URL`, `ADMIN_SECRET`, `CRON_SECRET`, `PRIZE_AUTHORITY_SECRET`, `PRIZE_MINT`, `SOLANA_DEVNET_RPC_URL`. Leave `RUN_JOBS_IN_PROCESS` unset.
+3. **Vercel env vars:** `DATABASE_URL`, `ADMIN_SECRET`, `CRON_SECRET`, `PRIZE_AUTHORITY_SECRET`, optionally `PRIZE_RPC_URL` and `NEXT_PUBLIC_SOLANA_RPC_URL`. Remove any old `PRIZE_MINT`, `SOLANA_DEVNET_RPC_URL` or `NEXT_PUBLIC_PRIZE_NETWORK`. Leave `RUN_JOBS_IN_PROCESS` unset.
 4. **Keep prices flowing:** have Supabase call `/api/cron/tick` every minute. Put your app URL and `CRON_SECRET` into [`db/supabase-cron.sql`](db/supabase-cron.sql) and run it in the Supabase SQL editor; it uses `pg_cron` + `pg_net`. Any external per-minute pinger sending `Authorization: Bearer <CRON_SECRET>` works too.
 
 Page views also keep things moving. When `/api/prices`, `/api/leagues` or `/api/series/*` is requested and the newest snapshot is older than about 50 seconds, the server runs the scheduler tick after sending the response. A lease in `job_lease` ensures only one runs at a time. The external pinger covers quiet periods, so rounds get kick-off and whistle prices even with nobody on the site.
@@ -76,6 +92,5 @@ On a single long-lived server (Railway, Fly, a VM), you can instead set `RUN_JOB
 
 ## Not built yet
 
-- Anchor prize-vault program (on-chain escrow). Prizes are currently a custodial devnet transfer.
-- Real PreStock prizes on mainnet.
+- Anchor prize-vault program (on-chain escrow). Prizes are currently a custodial mainnet transfer from the prize wallet.
 - Draft-popularity labels in the UI (the API already returns `popularity`).
