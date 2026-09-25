@@ -332,3 +332,29 @@ img { max-width: 100%; }
 .claim-medal { width: 88px; height: 88px; border-radius: 50%; background: var(--gold-tint); box-shadow: 0 0 0 3px var(--gold-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .cols-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (max-width: 480px) { .cols-2 { grid-template-columns: minmax(0, 1fr); } .claim-medal { width: 64px; height: 64px; } .claim-medal .kit-shirt { width: 52px; height: 52px; } }
+
+/* ---------- Profile ---------- */
+.profile-avatar { width: 128px; height: 128px; font-size: 56px; box-shadow: 0 0 0 5px var(--navy), 0 0 0 8px var(--lime); }
+.profile-stats { padding: 12px; background: var(--navy); border-radius: 18px; box-shadow: 0 24px 50px -24px rgba(10,16,48,.45); }
+.profile-stat-v { font-size: 48px !important; }
+.achv-grid { padding: 28px 28px 30px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 1023px) { .achv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 859px) {
+  .profile-id { gap: 18px !important; }
+  .profile-avatar { width: 80px; height: 80px; font-size: 36px; }
+  .profile-stat-v { font-size: 34px !important; }
+  .profile-stats .stat-box:last-child { grid-column: 1 / -1; }
+  .achv-grid { grid-template-columns: minmax(0, 1fr); padding: 20px; }
+}
+
+/* ---------- How it works ---------- */
+.hiw-step { padding: 24px 28px 30px; gap: 14px; }
+.hiw-num { font-size: 150px; line-height: .8; color: var(--lime); -webkit-text-stroke: 2px var(--navy); }
+.rule-def { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 20px; padding: 18px 24px; }
+.hiw-cta { position: relative; min-height: 220px; gap: 32px; padding: 32px 180px 32px 0; }
+@media (max-width: 859px) {
+  .hiw-step { padding: 16px 18px 20px; gap: 8px; }
+  .hiw-num { font-size: 80px; -webkit-text-stroke-width: 1.5px; }
+  .rule-def { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 16px 18px; }
+  .hiw-cta { padding: 36px 0; min-height: 0; }
+}
