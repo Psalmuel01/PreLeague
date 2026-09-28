@@ -139,7 +139,7 @@ export function LiveView({ slug }: { slug: string }) {
                 <span className="k">Leader</span>
                 <span className="v stat-v">{leader ? pct(leader.portfolioReturn) : "—"}</span>
                 <span className="stat-note" style={{ color: "var(--lime-ink)" }}>
-                  {leader ? leader.name : "Waiting for prices"}
+                  {leader ? leader.name : standings ? "No squads this round" : "Waiting for prices"}
                 </span>
               </div>
             )}
@@ -223,6 +223,8 @@ export function LiveView({ slug }: { slug: string }) {
                     )}
                   </div>
                 </>
+              ) : standings ? (
+                <NoSquads slug={slug} />
               ) : (
                 <WaitingForPrices kickoff={round.kickoff} />
               )}
@@ -342,6 +344,21 @@ export function LiveView({ slug }: { slug: string }) {
 }
 
 const KICKOFF_WINDOW_MS = 3 * 60_000;
+
+/** Prices are in, but nobody drafted a squad for this round. */
+function NoSquads({ slug }: { slug: string }) {
+  return (
+    <div className="empty-state">
+      <p className="title">No squads in this round</p>
+      <p className="small muted" style={{ maxWidth: 440 }}>
+        Nobody drafted before kick-off. Prices are still tracked below.
+      </p>
+      <Link className="btn btn-lime" href={`/league/${slug}`}>
+        Draft for the next round
+      </Link>
+    </div>
+  );
+}
 
 /** No kick-off prices yet: either they're about to land, or the window was missed. */
 function WaitingForPrices({ kickoff }: { kickoff: number }) {

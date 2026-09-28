@@ -88,6 +88,19 @@ export function ResultsView({ slug, roundId }: { slug: string; roundId?: string 
     );
   }
 
+  if (standings.length === 0) {
+    return (
+      <Shell>
+        <Notice
+          eyebrow={`${league.name} · Round ${round.round} · Ended ${timeOfDay(round.endsAt)}`}
+          title="No squads this round"
+          body="Nobody drafted before kick-off, so there’s no table and no winner. The prize stays unclaimed."
+          cta={next ? { href: `/league/${slug}`, label: "Join the next round" } : { href: "/leagues", label: "Browse leagues" }}
+        />
+      </Shell>
+    );
+  }
+
   const winner = standings[0];
   const me = view.you;
   const podium = standings.slice(0, 3);
