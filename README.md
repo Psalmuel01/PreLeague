@@ -7,7 +7,11 @@
 <p align="center">
   <b>Fantasy sports for private companies.</b><br>
   Draft three PreStocks, compete on their real market performance, and win a PreStock prize on Solana.<br>
-  <a href="https://preleague.vercel.app">preleague.vercel.app</a>
+  <a href="https://preleague.vercel.app">Live app</a> · <a href="https://youtu.be/PZ7RTIi_1eY">Demo video</a>
+</p>
+
+<p align="center">
+  <a href="https://youtu.be/PZ7RTIi_1eY"><img src="https://img.youtube.com/vi/PZ7RTIi_1eY/hqdefault.jpg" width="640" alt="Watch the PreLeague demo video"></a>
 </p>
 
 ---
