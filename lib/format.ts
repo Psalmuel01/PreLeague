@@ -1,6 +1,18 @@
 const MINUS = "−";
 
 /** Signed percentage from a fraction: 0.0283 → "+2.83%". Uses a true minus sign. */
+/** "+2.18 + 0.00 − 0.01": pick returns as a readable sum (no "+ −"). */
+export function sumExpr(fractions: number[], digits = 2): string {
+  return fractions
+    .map((f, i) => {
+      const v = Number((f * 100).toFixed(digits));
+      const abs = Math.abs(v).toFixed(digits);
+      if (i === 0) return v === 0 ? abs : `${v > 0 ? "+" : MINUS}${abs}`;
+      return `${v < 0 ? MINUS : "+"} ${abs}`;
+    })
+    .join(" ");
+}
+
 export function pct(fraction: number, digits = 2): string {
   if (!Number.isFinite(fraction)) return "—";
   const v = fraction * 100;

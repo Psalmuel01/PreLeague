@@ -2,7 +2,7 @@
 
 import { COMPANY_BY_ID } from "@/lib/companies";
 import { contribution } from "@/lib/scoring";
-import { pct, usd } from "@/lib/format";
+import { pct, sumExpr, usd } from "@/lib/format";
 import type { RoundView, Standing } from "@/lib/hooks/useRound";
 import { CoLogo, Delta, Move } from "@/components/ui/bits";
 import { Icon } from "@/components/ui/Icon";
@@ -109,7 +109,7 @@ export function SquadBreakdown({ view, s, onClose, title }: { view: RoundView; s
             <h3 className="h-3" id="score-title" style={{ fontSize: 22 }}>
               How your score is made
             </h3>
-            <div className="row wrap" style={{ gap: 5 }} role="math" aria-label={`(${s.pickReturns.map((r) => pct(r)).join(" + ")}) ÷ 3 = ${pct(s.portfolioReturn)}`}>
+            <div className="row wrap" style={{ gap: 5 }} role="math" aria-label={`(${sumExpr(s.pickReturns)}) ÷ 3 = ${pct(s.portfolioReturn)}`}>
               <span className="fig-m" style={{ color: "var(--ink-3)" }} aria-hidden="true">
                 (
               </span>

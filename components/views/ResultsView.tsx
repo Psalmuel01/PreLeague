@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { COMPANY_BY_ID } from "@/lib/companies";
 import { LEAGUE_BY_SLUG } from "@/lib/leagues";
-import { pct, pctAbs, timeOfDay, usd } from "@/lib/format";
+import { pct, pctAbs, sumExpr, timeOfDay, usd } from "@/lib/format";
 import { EARLY_BIRD_MS, levelFor, roundXp } from "@/lib/standings";
 import { shareText } from "@/lib/share";
 import { useRound } from "@/lib/hooks/useRound";
@@ -248,7 +248,11 @@ export function ResultsView({ slug, roundId }: { slug: string; roundId?: string 
                     <span className="caption">Final return</span>
                   </div>
                   <p className="small muted">
-                    Top {topPct}%{me.rank > 1 ? ` · ${pctAbs(winner.portfolioReturn - me.portfolioReturn)} behind ${winner.name}` : " · best in the league"}
+                    {me.rank > 1
+                      ? `Top ${topPct}% · ${pctAbs(winner.portfolioReturn - me.portfolioReturn)} behind ${winner.name}`
+                      : standings.length > 1
+                        ? `Best of ${standings.length} squads`
+                        : "The only squad this round"}
                   </p>
                 </div>
                 <div className="stack" style={{ borderTop: "1px solid var(--line)" }}>
@@ -264,7 +268,7 @@ export function ResultsView({ slug, roundId }: { slug: string; roundId?: string 
                   ))}
                 </div>
                 <button type="button" className="card-sunken num" onClick={() => setBreakdown(true)} style={{ marginTop: "auto", padding: "10px 14px", borderRadius: 10, fontSize: 14, fontWeight: 700, color: "var(--ink-2)", textAlign: "left" }}>
-                  ({me.pickReturns.map((r) => pct(r).replace("%", "")).join(" + ")}) ÷ 3 = {pct(me.portfolioReturn)}
+                  ({sumExpr(me.pickReturns)}) ÷ 3 = {pct(me.portfolioReturn)}
                 </button>
               </div>
             ) : (
