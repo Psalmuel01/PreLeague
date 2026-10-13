@@ -31,11 +31,11 @@ npm run dev
 npm run smoke
 ```
 
-The organizer needs Devnet SOL for rent/funding/finalization plus a sufficient mock-token float. Winners need Devnet SOL to pay fees and create their token account. Airdrops can be rate-limited; use the Solana faucet if necessary.
+The organizer needs Devnet SOL for rent/funding/finalization plus a sufficient mock-token float. By default, the organizer sponsors Devnet claim fees and recipient token-account rent. Winners can approve a claim with zero Devnet SOL. If sponsorship is disabled with `SPONSOR_DEVNET_CLAIMS=0`, winners need free Devnet SOL and the claim page guides them to the faucet before wallet signing. Airdrops can be rate-limited; use the Solana faucet if necessary.
 
 Scheduler ticks fund the nearest upcoming round of each series and retry finalization of completed rounds. Errors are logged under `vault`; scoring results remain intact. The admin API also accepts `fund` and `finalize` with a `leagueId`. Funding and finalization are idempotent by checking onchain state. A crash after confirmation can lose the optional transaction link, but cannot duplicate funding or change the winner. The league account remains verifiable in Explorer.
 
-The claim API prepares an unsigned transaction. The client signs and submits it, then posts its signature for confirmed transaction verification and history. If the browser closes after submission, the claimed state is still read directly from Solana. Claims do not require the organizer secret.
+The claim API prepares the exact vault claim and, by default, adds an idempotent recipient token-account creation instruction paid by the organizer. The organizer partially signs as fee payer; the client adds the mandatory winning-wallet signature and submits it, then posts its signature for confirmed transaction verification and history. The server cannot claim on behalf of a winner. If the browser closes after submission, the claimed state is still read directly from Solana. The wallet-funded fallback does not require the organizer secret. Sponsorship requires the existing organizer secret and enough Devnet SOL for fees and rent.
 
 The results panel exposes the canonical receipt, recomputes its SHA-256 in the browser, and compares it with the commitment fetched from Devnet. This proves the receipt matches the authority's committed result; it does not prove scoring ran onchain or eliminate trust in the settlement authority.
 
@@ -60,3 +60,13 @@ Program: [EtZ1sKD7NJ6Gd1vs8dSBFDjwTZ66XGUwgG9dCeZpXUaq](https://explorer.solana.
 The first full app attempt was blocked by null token prices. A later recheck returned valid live token prices for seven companies in the existing pool, while SpaceX remained absent. The AI Unicorn Sprint lifecycle then passed every smoke check using live prices and labelled automated test wallets: funded escrow before drafting, live standings, deterministic settlement, immutable winner/hash commitment, wallet-signed claim, and rejection of a second claim. The short test round had unchanged boundary prices, so returns were zero and deterministic tie-breaking selected the winner. This is integration verification, not organic participation or a human Phantom-wallet demonstration.
 
 [Live-price app claim transaction](https://explorer.solana.com/tx/soZ23yzMds8YGJ9RjAUEufgrSKQPKwyHJG7GjDYu9Aw1UUhYe6corLwqzcuwqUoXhd3WBcxTtQP36m8NjAvVTv9?cluster=devnet). `devnet-live-smoke.json` records the actual prices, standings, canonical receipt, funding/finalization transactions, and claimed state. Run `SMOKE_SERIES=ai-unicorn-sprint npm run smoke` against the running app to repeat it. SpaceX-dependent leagues still need a usable SpaceX token price. Mark prices and fallback quotes are never substituted.
+
+## Judge-friendly claims
+
+Claim fees are sponsored by default whenever `PRIZE_AUTHORITY_SECRET` is configured. `SPONSOR_DEVNET_CLAIMS=0` opts out. No new program deployment or database migration is required: recipient account creation runs before the existing vault instruction, and the winner still signs.
+
+`lib/solana/claim.ts` quotes the actual transaction fee and required account rent, checks the sponsor balance, and partially signs only the prepared claim. Confirmed-claim verification accepts the organizer as fee payer while checking the winner is a transaction signer and the claim targets the expected league.
+
+The claim page explains sponsorship. The fallback checks the winning wallet's SOL before asking for a signature and shows address copying, a free Devnet SOL faucet link, and a retry button. Common simulation and wallet-cancellation errors are translated into readable messages.
+
+Run `VAULT_VERIFY_SPONSORED=1 npm run vault:verify` to prove the deployed vault supports a zero-SOL winner. `devnet-sponsored-claim.json` records the labelled test fixture and its public claim transaction. Test the Phantom browser approval after deploying the updated website.

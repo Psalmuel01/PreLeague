@@ -146,17 +146,20 @@ async function main() {
     const winner = [alice, bob].find(p => p.wallet === final.json.winnerWallet);
     if (winner) {
       const connection = vaultConnection(); await assertDevnet(connection);
-      try {
-        const airdrop = await connection.requestAirdrop(winner.kp.publicKey, 100_000_000);
-        await connection.confirmTransaction(airdrop);
-      } catch {
-        const organizer = Keypair.fromSecretKey(bs58.decode(process.env.PRIZE_AUTHORITY_SECRET!));
-        await sendAndConfirmTransaction(connection, new Transaction().add(SystemProgram.transfer({ fromPubkey: organizer.publicKey, toPubkey: winner.kp.publicKey, lamports: 10_000_000 })), [organizer]);
-      }
       const prepared = await winner.call(`/api/leagues/${id}/claim`, {});
-      assert(prepared.status === 200 && Boolean(prepared.json.transaction), "unsigned winner claim prepared", prepared.json);
+      assert(prepared.status === 200 && Boolean(prepared.json.transaction), "winner claim prepared", prepared.json);
+      if (prepared.json.feesSponsored) assert(await connection.getBalance(winner.kp.publicKey) === 0, "sponsored winner needs no Devnet SOL");
+      if (!prepared.json.feesSponsored) {
+        try {
+          const airdrop = await connection.requestAirdrop(winner.kp.publicKey, 100_000_000);
+          await connection.confirmTransaction(airdrop);
+        } catch {
+          const organizer = Keypair.fromSecretKey(bs58.decode(process.env.PRIZE_AUTHORITY_SECRET!));
+          await sendAndConfirmTransaction(connection, new Transaction().add(SystemProgram.transfer({ fromPubkey: organizer.publicKey, toPubkey: winner.kp.publicKey, lamports: 10_000_000 })), [organizer]);
+        }
+      }
       const transaction = Transaction.from(Buffer.from(prepared.json.transaction as string, "base64"));
-      transaction.sign(winner.kp);
+      transaction.partialSign(winner.kp);
       const signature = await connection.sendRawTransaction(transaction.serialize());
       await connection.confirmTransaction({ signature, blockhash: prepared.json.blockhash as string, lastValidBlockHeight: prepared.json.lastValidBlockHeight as number });
       const paid = await winner.call(`/api/leagues/${id}/claim`, { signature });

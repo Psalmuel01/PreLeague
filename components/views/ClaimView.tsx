@@ -27,6 +27,8 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
   const player = usePlayer();
   const { view, loaded } = useRound(league, roundId ?? "last");
   const [busy, setBusy] = useState(false);
+  const [needsSol, setNeedsSol] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!game.ready || !loaded) {
@@ -69,6 +71,7 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
   async function claim() {
     setBusy(true);
     setError(null);
+    setNeedsSol(false);
     try {
       if (!wallet.publicKey || wallet.publicKey.toBase58() !== player.address || !wallet.signTransaction) throw new Error("Connect the wallet you played with");
       const connection = vaultConnection();
@@ -76,6 +79,10 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
       const res = await fetch(`/api/leagues/${view!.id}/claim`, { method: "POST" });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Claim failed");
+      if (!body.feesSponsored && await connection.getBalance(wallet.publicKey, "confirmed") < body.requiredLamports) {
+        setNeedsSol(true);
+        return;
+      }
       const signed = await wallet.signTransaction(Transaction.from(Buffer.from(body.transaction, "base64")));
       const signature = await connection.sendRawTransaction(signed.serialize());
       setClaimTx(signature);
@@ -84,7 +91,15 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
       const recorded = await fetch(`/api/leagues/${view!.id}/claim`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ signature }) });
       if (!recorded.ok) throw new Error((await recorded.json()).error ?? "Refresh to check your confirmed claim");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Network error — try again.");
+      const message = err instanceof Error ? err.message : "";
+      if (/no record of a prior credit|insufficient lamports|insufficient funds for (rent|fee)/i.test(message)) {
+        if (view?.claimFeesSponsored) setError("The demo fee sponsor needs Devnet SOL. Your prize remains escrowed; please try again shortly.");
+        else setNeedsSol(true);
+      } else if (/user rejected|declined|cancelled/i.test(message)) {
+        setError("Claim cancelled in your wallet. Your prize is still available.");
+      } else if (/simulation failed|SendTransactionError|fetch failed|NetworkError/i.test(message)) {
+        setError("The claim could not be submitted. Your prize remains escrowed. Please try again.");
+      } else setError(message || "Could not reach Solana. Please try again.");
     } finally {
       await view!.refresh();
       setBusy(false);
@@ -174,6 +189,25 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
               </div>
             </div>
 
+            {status !== "sent" && <div className="stack" style={{ padding: 16, gap: 8, borderRadius: 12, background: "var(--navy-2)" }}>
+              <strong>{view.claimFeesSponsored ? "Claim fees covered by PreLeague" : "Free Devnet SOL for this demo"}</strong>
+              <span className="small">{view.claimFeesSponsored
+                ? "You do not need test SOL or prize tokens. PreLeague pays the network fee and creates your token account. You still approve the claim in your wallet."
+                : "The prize is already funded. Your wallet needs a little free Devnet SOL for network fees; no prize tokens are needed."}</span>
+            </div>}
+            {needsSol && status !== "sent" && <div className="stack" role="status" style={{ padding: 16, borderRadius: 12, background: "var(--navy-2)", gap: 12 }}>
+              <strong>Get free test SOL to finish your claim</strong>
+              <span className="small">Copy your winning wallet address, request Devnet SOL from the faucet, then return here and retry. Your prize stays safely escrowed.</span>
+              <span className="mono small" style={{ overflowWrap: "anywhere" }}>{player.address}</span>
+              <div className="row wrap" style={{ gap: 10 }}>
+                <button className="btn btn-ghost-night" type="button" onClick={async () => {
+                  try { await navigator.clipboard.writeText(player.address!); setCopied(true); }
+                  catch { setError("Select and copy the wallet address above."); }
+                }}>{copied ? "Address copied ✓" : "Copy wallet address"}</button>
+                <a className="btn btn-lime" href="https://faucet.solana.com" target="_blank" rel="noreferrer">Get free Devnet SOL <Icon name="external" size="sm" /></a>
+              </div>
+            </div>}
+
             {status === "pending" ? (
               <div className="stack" style={{ gap: 12 }}>
                 <div role="status" className="row" style={{ borderRadius: 12, padding: "14px 16px", gap: 14, background: "var(--navy-2)", boxShadow: "inset 0 0 0 1px var(--navy-line)" }}>
@@ -203,7 +237,7 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
               </div>
             ) : (
               <button className="btn btn-lime btn-lg btn-block" type="button" disabled={!view.vault?.finalized || !view.vault?.funded || view.vault?.cancelled} onClick={claim}>
-                {status === "failed" ? "Try again" : "Claim prize"}
+                {needsSol ? "I have test SOL — retry claim" : status === "failed" ? "Try again" : "Claim prize"}
               </button>
             )}
           </div>
@@ -213,7 +247,7 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
         <p className="caption center">
           {mainnet
             ? `Paid in real ${prize.name} PreStock on Solana mainnet, to the wallet you played with. PreStocks withholds a small transfer fee (1–3%) from token transfers.`
-            : `Hackathon build: claim a mock ${prize.symbol} token escrowed on Solana Devnet. The amount is fixed at funding; its displayed USD value can change. Your wallet pays Devnet transaction fees.`}
+            : `Hackathon build: claim a mock ${prize.symbol} token escrowed on Solana Devnet. The amount is fixed at funding; its displayed USD value can change. ${view.claimFeesSponsored ? "PreLeague covers the Devnet claim fees; you approve the payout in your wallet." : "Your wallet pays Devnet transaction fees using free test SOL."}`}
         </p>
       </div>
     </Shell>

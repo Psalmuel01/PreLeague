@@ -4,6 +4,7 @@ import { Keypair, PublicKey, Transaction, sendAndConfirmTransaction } from "@sol
 import { getMint } from "@solana/spl-token";
 import { COMPANY_BY_ID } from "@/lib/companies";
 import { assertDevnet, vaultConnection, readVault, initializeInstruction, fundInstruction, finalizeInstruction, payoutInstruction, sha256 } from "@/lib/solana/vault";
+import { buildClaimTransaction } from "@/lib/solana/claim";
 import { settlementReceipt, type SettlementReceipt } from "@/lib/solana/receipt";
 import { logJob, q } from "./db";
 import { getLeague } from "./rounds";
@@ -87,7 +88,11 @@ export async function cancelVault(id: string) {
   await sendAndConfirmTransaction(connection, new Transaction().add(await payoutInstruction(id, authority.publicKey, new PublicKey(state.mint), true)), [authority]);
 }
 
-/** Only returns an unsigned transaction; the winner pays fees and signs in their own wallet. */
+export function claimFeesSponsored() {
+  return process.env.SPONSOR_DEVNET_CLAIMS !== "0" && Boolean(process.env.PRIZE_AUTHORITY_SECRET);
+}
+
+/** The organizer can sign as fee payer; only the winning wallet can authorize the payout. */
 export async function prepareClaim(id: string, wallet: string) {
   const league = await getLeague(id);
   if (!league || league.status !== "completed" || league.winner_wallet !== wallet) throw new Error("Only this round's winner can claim");
@@ -95,9 +100,10 @@ export async function prepareClaim(id: string, wallet: string) {
   const state = await readVault(connection, id);
   if (!state?.funded || !state.finalized || state.cancelled || state.winner !== wallet || state.settlementHash !== league.settlement_hash || state.mint !== league.prize_mint || state.authority !== prizeAuthorityAddress().toBase58()) throw new Error("The prize is awaiting onchain settlement");
   if (state.claimed) throw new Error("Prize already claimed");
-  const latest = await connection.getLatestBlockhash();
-  const transaction = new Transaction({ feePayer: new PublicKey(wallet), ...latest }).add(await payoutInstruction(id, new PublicKey(wallet), new PublicKey(state.mint)));
-  return { transaction: transaction.serialize({ requireAllSignatures: false }).toString("base64"), ...latest };
+  const sponsor = claimFeesSponsored() ? prizeWallet() : undefined;
+  if (sponsor && sponsor.publicKey.toBase58() !== state.authority) throw new Error("The demo organizer wallet needs configuration. Your prize is still escrowed.");
+  const prepared = await buildClaimTransaction(connection, id, new PublicKey(wallet), new PublicKey(state.mint), sponsor);
+  return { ...prepared, transaction: prepared.transaction.serialize({ requireAllSignatures: false }).toString("base64") };
 }
 export async function recordClaim(id: string, wallet: string, signature: string) {
   const league = await getLeague(id);
@@ -109,7 +115,10 @@ export async function recordClaim(id: string, wallet: string, signature: string)
   if (!state?.claimed || state.winner !== wallet || state.settlementHash !== league.settlement_hash || state.mint !== league.prize_mint || state.authority !== prizeAuthorityAddress().toBase58() || !transaction || transaction.meta?.err) throw new Error("Claim has not confirmed yet");
   const keys = transaction.transaction.message.getAccountKeys();
   const discriminator = (await sha256("global:claim_prize")).subarray(0, 8);
-  if (keys.get(0)?.toBase58() !== wallet || !transaction.transaction.message.compiledInstructions.some(ix => keys.get(ix.programIdIndex)?.toBase58() === state.program && Buffer.from(ix.data).equals(discriminator) && keys.get(ix.accountKeyIndexes[0])?.toBase58() === wallet && keys.get(ix.accountKeyIndexes[1])?.toBase58() === state.address)) throw new Error("Transaction does not claim this league's prize");
+  const message = transaction.transaction.message;
+  const winnerSigns = Array.from({ length: message.header.numRequiredSignatures }, (_, index) => keys.get(index)?.toBase58()).includes(wallet);
+  const payer = keys.get(0)?.toBase58();
+  if (!winnerSigns || (payer !== wallet && payer !== state.authority) || !message.compiledInstructions.some(ix => keys.get(ix.programIdIndex)?.toBase58() === state.program && Buffer.from(ix.data).equals(discriminator) && keys.get(ix.accountKeyIndexes[0])?.toBase58() === wallet && keys.get(ix.accountKeyIndexes[1])?.toBase58() === state.address)) throw new Error("Transaction does not claim this league's prize");
   await q(`insert into prize_claims (league_id, wallet, status, network, tx_signature, amount_raw) values ($1, $2, 'sent', 'devnet', $3, $4) on conflict (league_id) do update set status = 'sent', network = 'devnet', tx_signature = excluded.tx_signature, amount_raw = excluded.amount_raw, error = null, updated_at = now()`, [id, wallet, signature, state.amount]);
   return { status: "sent", tx: signature };
 }

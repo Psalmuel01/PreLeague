@@ -6,6 +6,7 @@ import bs58 from "bs58";
 import { Keypair, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction } from "@solana/web3.js";
 import { getAccount, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { assertDevnet, vaultConnection, vaultProgram, initializeInstruction, fundInstruction, finalizeInstruction, payoutInstruction, readVault } from "../lib/solana/vault";
+import { buildClaimTransaction } from "../lib/solana/claim";
 import { settlementReceipt } from "../lib/solana/receipt";
 async function main() {
   const connection = vaultConnection(); await assertDevnet(connection);
@@ -22,15 +23,28 @@ async function main() {
   const timestamp = new Date().toISOString();
   const receipt = settlementReceipt({ leagueId: id, round: 1, startsAt: timestamp, endsAt: timestamp, startPrices: { FIXTURE: 100 }, endPrices: { FIXTURE: 101 }, winningWallet: winner.publicKey.toBase58(), winningScore: 0.01, settledAt: timestamp });
   const settlementTx = await send(new Transaction().add(await finalizeInstruction(id, authority.publicKey, winner.publicKey, Buffer.from(receipt.hash, "hex"))));
-  await send(new Transaction().add(SystemProgram.transfer({ fromPubkey: authority.publicKey, toPubkey: winner.publicKey, lamports: 10_000_000 })));
-  const claimTx = await send(new Transaction().add(await payoutInstruction(id, winner.publicKey, mint)), winner);
+  const sponsored = process.env.VAULT_VERIFY_SPONSORED === "1";
+  let claimTx: string;
+  if (sponsored) {
+    if (await connection.getBalance(winner.publicKey) !== 0) throw new Error("Fixture winner must start with zero Devnet SOL");
+    const prepared = await buildClaimTransaction(connection, id, winner.publicKey, mint, authority);
+    const walletTransaction = Transaction.from(prepared.transaction.serialize({ requireAllSignatures: false }));
+    walletTransaction.partialSign(winner);
+    claimTx = await connection.sendRawTransaction(walletTransaction.serialize());
+    const confirmation = await connection.confirmTransaction({ signature: claimTx, blockhash: prepared.blockhash, lastValidBlockHeight: prepared.lastValidBlockHeight }, "confirmed");
+    if (confirmation.value.err) throw new Error("Sponsored claim failed");
+    if (await connection.getBalance(winner.publicKey) !== 0) throw new Error("Winner should not need or spend SOL");
+  } else {
+    await send(new Transaction().add(SystemProgram.transfer({ fromPubkey: authority.publicKey, toPubkey: winner.publicKey, lamports: 10_000_000 })));
+    claimTx = await send(new Transaction().add(await payoutInstruction(id, winner.publicKey, mint)), winner);
+  }
   const state = await readVault(connection, id);
   const destination = await getAccount(connection, getAssociatedTokenAddressSync(mint, winner.publicKey));
   if (!state?.claimed || !state.finalized || state.winner !== winner.publicKey.toBase58() || state.settlementHash !== receipt.hash || destination.amount !== amount) throw new Error("Devnet verification failed");
   const deployment = JSON.parse(readFileSync("docs/devnet-deployment.json", "utf8"));
   const currentHash = createHash("sha256").update(readFileSync("target/deploy/preleague_vault.so")).digest("hex");
   if (deployment.binarySha256 !== currentHash) throw new Error("Local binary changed since deployment");
-  writeFileSync("docs/devnet-vault-proof.json", JSON.stringify({ source: "synthetic contract verification fixture; not live scoring or an organic player", program: vaultProgram().toBase58(), leagueId: id, fundingTx, settlementTx, claimTx, receipt, state, receivedRaw: destination.amount.toString() }, null, 2) + "\n");
+  writeFileSync(sponsored ? "docs/devnet-sponsored-claim.json" : "docs/devnet-vault-proof.json", JSON.stringify({ source: "synthetic contract verification fixture; not live scoring or an organic player", program: vaultProgram().toBase58(), leagueId: id, fundingTx, settlementTx, claimTx, receipt, state, feesSponsored: sponsored, winnerSolBalance: await connection.getBalance(winner.publicKey) / 1e9, receivedRaw: destination.amount.toString() }, null, 2) + "\n");
   console.log("Winner-signed claim verified:", `https://explorer.solana.com/tx/${claimTx}?cluster=devnet`);
 }
 main().catch(err => { console.error(err); process.exitCode = 1; });

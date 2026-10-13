@@ -7,7 +7,7 @@ import { SCORING } from "@/lib/settlement";
 import type { ManagerJSON, RoundJSON } from "@/lib/api-types";
 import { q } from "./db";
 import { latestQuotes, snapshotsBetween } from "./prices";
-import { prizeAuthorityAddress } from "./prize";
+import { prizeAuthorityAddress, claimFeesSponsored } from "./prize";
 import { assertDevnet, vaultConnection, readVault } from "@/lib/solana/vault";
 import type { LeagueRow } from "./rounds";
 
@@ -149,6 +149,7 @@ export async function roundView(league: LeagueRow, viewer: string | null): Promi
     reviewReason: league.review_reason,
     vault,
     vaultError,
+    claimFeesSponsored: claimFeesSponsored(),
     claim: claimRow && claimRow.wallet === viewer ? { status: claimRow.status as "pending" | "sent" | "failed", tx: claimRow.tx_signature, error: claimRow.error, network: claimRow.network } : null,
   };
 }

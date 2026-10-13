@@ -1,0 +1,44 @@
+{
+  "source": "synthetic contract verification fixture; not live scoring or an organic player",
+  "program": "EtZ1sKD7NJ6Gd1vs8dSBFDjwTZ66XGUwgG9dCeZpXUaq",
+  "leagueId": "vault-verification-1791897853060",
+  "fundingTx": "4UyWP8yJsRQUvhUEaCKVkEDrjwbpd3RUk8AHnBZzLB19ZWavzHrc7BZu3tCoMHMpFgjxfWvRQXkDvh2Hta1wERLs",
+  "settlementTx": "233W3XVGjSvRDR1ZkmGRJxG6SATYV6ZFEuniuvM4ev7F5d3uUyk2fFq6jPRomeHwS7Mf9SUwditN9amJkvg13R6Q",
+  "claimTx": "5PZgobXkwoKzGJ9P3iPbvM4yrEdypiC9rQ22JDyEvhwJpq1hY2YPZsrFZT6vYqkVcgtEnfWDcF3Nm2mYK38uFYwT",
+  "receipt": {
+    "payload": {
+      "leagueId": "vault-verification-1791897853060",
+      "round": 1,
+      "startsAt": "2026-10-13T13:24:15.116Z",
+      "endsAt": "2026-10-13T13:24:15.116Z",
+      "startPrices": {
+        "FIXTURE": 100
+      },
+      "endPrices": {
+        "FIXTURE": 101
+      },
+      "winningWallet": "BuNgC6xkEuGq1yk4zXGwZodVM7DHTxoUfwy8k1FgQrYr",
+      "winningScore": 0.01,
+      "settledAt": "2026-10-13T13:24:15.116Z"
+    },
+    "serialized": "{\"endPrices\":{\"FIXTURE\":101},\"endsAt\":\"2026-10-13T13:24:15.116Z\",\"leagueId\":\"vault-verification-1791897853060\",\"round\":1,\"settledAt\":\"2026-10-13T13:24:15.116Z\",\"startPrices\":{\"FIXTURE\":100},\"startsAt\":\"2026-10-13T13:24:15.116Z\",\"winningScore\":0.01,\"winningWallet\":\"BuNgC6xkEuGq1yk4zXGwZodVM7DHTxoUfwy8k1FgQrYr\"}",
+    "hash": "0bcb09ac5caab625f500a4e865a68b4ffa5ed2e6f45498e942e8e23fbecb07fd"
+  },
+  "state": {
+    "decimals": 6,
+    "address": "BZAXAN9NCuFdCm61aV3XDJtmNafKH1GwVY3hzyEtJu9N",
+    "program": "EtZ1sKD7NJ6Gd1vs8dSBFDjwTZ66XGUwgG9dCeZpXUaq",
+    "authority": "DaCfBVgSNZB7UfY2qaTAogLuLMrDgcrw2FxGc98REkve",
+    "mint": "DY485TGBroyRE3ZF9jCKAvBcEQN8EECjwGzsgLF8ReGB",
+    "amount": "1000000",
+    "winner": "BuNgC6xkEuGq1yk4zXGwZodVM7DHTxoUfwy8k1FgQrYr",
+    "settlementHash": "0bcb09ac5caab625f500a4e865a68b4ffa5ed2e6f45498e942e8e23fbecb07fd",
+    "funded": true,
+    "finalized": true,
+    "claimed": true,
+    "cancelled": false
+  },
+  "feesSponsored": true,
+  "winnerSolBalance": 0,
+  "receivedRaw": "1000000"
+}
