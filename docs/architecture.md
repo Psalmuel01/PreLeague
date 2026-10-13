@@ -81,3 +81,7 @@ Migrations are in [`db/migrations`](../db/migrations) and are applied in order b
 | `lib/server/prize.ts` | Prize payouts |
 | `components/views/*` | One view per page: Home, Leagues, Draft, Locked, Live, Results, Claim, Profile |
 | `components/providers/*` | Wallet, session, game state and live prices |
+
+## Prize trust layer
+
+`programs/preleague_vault` escrows classic SPL mock prize tokens on Devnet. Scheduler ticks fund upcoming rounds, then commit the immutable winning wallet and canonical settlement receipt SHA-256 after offchain scoring. Winners sign their own claim; the backend only prepares and verifies transactions. Database claims are a history cache; Solana is the source of truth for custody and paid status. See [prizes](prizes.md).

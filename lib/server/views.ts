@@ -7,6 +7,8 @@ import { SCORING } from "@/lib/settlement";
 import type { ManagerJSON, RoundJSON } from "@/lib/api-types";
 import { q } from "./db";
 import { latestQuotes, snapshotsBetween } from "./prices";
+import { prizeAuthorityAddress } from "./prize";
+import { assertDevnet, vaultConnection, readVault } from "@/lib/solana/vault";
 import type { LeagueRow } from "./rounds";
 
 export function avatarTone(wallet: string): string {
@@ -113,6 +115,18 @@ export async function roundView(league: LeagueRow, viewer: string | null): Promi
   }
 
   const claimRow = claimRows[0];
+  let vault: RoundJSON["vault"] = null;
+  let vaultError: string | null = null;
+  if (process.env.NEXT_PUBLIC_VAULT_PROGRAM_ID) {
+    try {
+      const connection = vaultConnection();
+      await assertDevnet(connection);
+      const state = await readVault(connection, league.id);
+      if (state && (state.authority !== prizeAuthorityAddress().toBase58() || state.mint !== league.prize_mint)) throw new Error("Escrow organizer or mint mismatch");
+      if (state) vault = { ...state, fundingTx: league.vault_funding_tx, finalizationTx: league.vault_finalization_tx, receipt: league.settlement_payload, receiptHash: league.settlement_hash };
+    } catch { vaultError = "Solana verification is temporarily unavailable"; }
+  }
+
 
   return {
     id: league.id,
@@ -133,6 +147,8 @@ export async function roundView(league: LeagueRow, viewer: string | null): Promi
     standings,
     winnerWallet: league.winner_wallet,
     reviewReason: league.review_reason,
+    vault,
+    vaultError,
     claim: claimRow && claimRow.wallet === viewer ? { status: claimRow.status as "pending" | "sent" | "failed", tx: claimRow.tx_signature, error: claimRow.error, network: claimRow.network } : null,
   };
 }

@@ -26,7 +26,7 @@ All endpoints return JSON. Signed-in endpoints use the httpOnly session cookie t
 | GET | `/api/me` | — | Wallet, display name and round history |
 | POST | `/api/me` | `{ displayName }` | Sets your display name |
 | POST | `/api/leagues/:id/lineup` | `{ picks: [id, id, id] }` | Creates or edits your lineup. Errors: `409` after kick-off or when full, `400` for invalid picks. |
-| POST | `/api/leagues/:id/claim` | — | Winner only. Returns `200 {status:"sent", tx}`, `202 {status:"pending", tx}` or `400 {status:"failed", error}`. |
+| POST | `/api/leagues/:id/claim` | — | Winner only. Empty body returns `200 {transaction, blockhash, lastValidBlockHeight}` (unsigned Devnet transaction). `{signature}` verifies a confirmed wallet-signed claim and returns `{status:"sent", tx}`. Errors return `400 {error}`. |
 
 ## Jobs (`Authorization: Bearer <CRON_SECRET>`)
 

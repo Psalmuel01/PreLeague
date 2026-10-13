@@ -1,6 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { Buffer } from "buffer";
+import { Transaction } from "@solana/web3.js";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { assertDevnet, vaultConnection } from "@/lib/solana/vault";
+import { VaultPanel } from "@/components/league/VaultPanel";
 import { useState } from "react";
 import { COMPANY_BY_ID } from "@/lib/companies";
 import { LEAGUE_BY_SLUG } from "@/lib/leagues";
@@ -17,6 +22,8 @@ import { Icon } from "@/components/ui/Icon";
 export function ClaimView({ slug, roundId }: { slug: string; roundId?: string }) {
   const league = LEAGUE_BY_SLUG[slug];
   const game = useGame();
+  const wallet = useWallet();
+  const [claimTx, setClaimTx] = useState<string | null>(null);
   const player = usePlayer();
   const { view, loaded } = useRound(league, roundId ?? "last");
   const [busy, setBusy] = useState(false);
@@ -54,9 +61,8 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
   }
 
   const prize = COMPANY_BY_ID[view.prize.company];
-  const settlePrice = view.boundary.end?.[prize.symbol];
-  const tokens = settlePrice ? view.prize.usd / settlePrice : null;
-  const status = busy ? "pending" : view.claim?.status ?? "ready";
+  const tokens = view.vault ? Number(view.vault.amount) / 10 ** view.vault.decimals : null;
+  const status = busy ? "pending" : view.vault?.claimed ? "sent" : view.claim?.status ?? "ready";
   const network = (view.claim?.network as PrizeNetwork | undefined) ?? prizeNetwork();
   const mainnet = network === "mainnet";
 
@@ -64,11 +70,21 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
     setBusy(true);
     setError(null);
     try {
+      if (!wallet.publicKey || wallet.publicKey.toBase58() !== player.address || !wallet.signTransaction) throw new Error("Connect the wallet you played with");
+      const connection = vaultConnection();
+      await assertDevnet(connection);
       const res = await fetch(`/api/leagues/${view!.id}/claim`, { method: "POST" });
       const body = await res.json();
-      if (!res.ok) setError(body.error ?? "Claim failed");
-    } catch {
-      setError("Network error — try again.");
+      if (!res.ok) throw new Error(body.error ?? "Claim failed");
+      const signed = await wallet.signTransaction(Transaction.from(Buffer.from(body.transaction, "base64")));
+      const signature = await connection.sendRawTransaction(signed.serialize());
+      setClaimTx(signature);
+      const confirmed = await connection.confirmTransaction({ signature, blockhash: body.blockhash, lastValidBlockHeight: body.lastValidBlockHeight }, "confirmed");
+      if (confirmed.value.err) throw new Error("Claim transaction failed");
+      const recorded = await fetch(`/api/leagues/${view!.id}/claim`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ signature }) });
+      if (!recorded.ok) throw new Error((await recorded.json()).error ?? "Refresh to check your confirmed claim");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error — try again.");
     } finally {
       await view!.refresh();
       setBusy(false);
@@ -130,14 +146,14 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
               <div className="kv">
                 <span className="k">{status === "sent" ? "Received" : "You’ll receive"}</span>
                 <span className="v row" style={{ alignItems: "baseline", gap: 6 }}>
-                  ≈ {tokens ? tokens.toFixed(4) : "—"}
+                  {tokens?.toLocaleString(undefined, { maximumFractionDigits: 6 }) ?? "—"}
                   <span className="ticker" style={{ color: "var(--navy-ink-2)" }}>
                     {prize.symbol}{mainnet ? "" : " (devnet mock)"}
                   </span>
                 </span>
               </div>
               <div className="kv">
-                <span className="k">Value at settlement</span>
+                <span className="k">Prize value when escrow funded</span>
                 <span className="v">{usd(view.prize.usd)}</span>
               </div>
               <div className="kv">
@@ -178,25 +194,26 @@ export function ClaimView({ slug, roundId }: { slug: string; roundId?: string })
                 <Link className="btn btn-lime btn-lg btn-block" href="/leagues">
                   Join another league
                 </Link>
-                {view.claim?.tx && (
-                  <a className="btn btn-ghost-night" href={explorerTx(view.claim.tx, network)} target="_blank" rel="noreferrer">
+                {(claimTx || view.claim?.tx) && (
+                  <a className="btn btn-ghost-night" href={explorerTx(claimTx || view.claim!.tx!, "devnet")} target="_blank" rel="noreferrer">
                     View transaction
                     <Icon name="external" size="sm" />
                   </a>
                 )}
               </div>
             ) : (
-              <button className="btn btn-lime btn-lg btn-block" type="button" onClick={claim}>
+              <button className="btn btn-lime btn-lg btn-block" type="button" disabled={!view.vault?.finalized || !view.vault?.funded || view.vault?.cancelled} onClick={claim}>
                 {status === "failed" ? "Try again" : "Claim prize"}
               </button>
             )}
           </div>
         </section>
 
+        <VaultPanel view={view} />
         <p className="caption center">
           {mainnet
             ? `Paid in real ${prize.name} PreStock on Solana mainnet, to the wallet you played with. PreStocks withholds a small transfer fee (1–3%) from token transfers.`
-            : `Hackathon build: prizes are paid in a mock ${prize.symbol} token on Solana devnet, sent to the wallet you played with.`}
+            : `Hackathon build: claim a mock ${prize.symbol} token escrowed on Solana Devnet. The amount is fixed at funding; its displayed USD value can change. Your wallet pays Devnet transaction fees.`}
         </p>
       </div>
     </Shell>

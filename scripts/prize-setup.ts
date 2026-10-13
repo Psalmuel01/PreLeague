@@ -2,6 +2,7 @@
 // funds it with devnet SOL, creates a mock "SPACEX (devnet)" SPL mint and mints
 // a prize float to the authority. Appends PRIZE_* vars to .env.local.
 // Usage: npm run prize:setup
+import { assertDevnet } from "../lib/solana/vault";
 import { appendFileSync } from "node:fs";
 import bs58 from "bs58";
 import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
@@ -17,9 +18,11 @@ async function main() {
     process.exit(1);
   }
   const connection = new Connection(process.env.PRIZE_RPC_URL || "https://api.devnet.solana.com", "confirmed");
+  await assertDevnet(connection);
   const existing = process.env.PRIZE_AUTHORITY_SECRET;
   const authority = existing ? Keypair.fromSecretKey(bs58.decode(existing)) : Keypair.generate();
   if (!existing) appendFileSync(ENV, `\nPRIZE_AUTHORITY_SECRET=${bs58.encode(authority.secretKey)}\n`);
+  if (!process.env.PRIZE_AUTHORITY_ADDRESS) appendFileSync(ENV, `PRIZE_AUTHORITY_ADDRESS=${authority.publicKey.toBase58()}\n`);
   console.log("Prize authority:", authority.publicKey.toBase58());
 
   let balance = await connection.getBalance(authority.publicKey);

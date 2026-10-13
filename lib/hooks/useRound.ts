@@ -35,6 +35,8 @@ export type RoundView = {
   maxPlayers: number;
   winnerWallet: string | null;
   claim: RoundJSON["claim"];
+  vault: RoundJSON["vault"];
+  vaultError: string | null;
   /** Round could not be scored (missing prices) and is under review. */
   unscoreable: boolean;
   reviewReason: string | null;
@@ -102,6 +104,8 @@ export function useRound(league: League, which: Which = "current") {
       maxPlayers: json.maxPlayers,
       winnerWallet: json.winnerWallet,
       claim: json.claim,
+      vault: json.vault,
+      vaultError: json.vaultError,
       unscoreable: json.status === "review_required" || json.status === "cancelled",
       reviewReason: json.reviewReason,
       refresh: load,

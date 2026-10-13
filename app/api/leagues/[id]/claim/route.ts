@@ -1,11 +1,13 @@
 import { sessionWallet } from "@/lib/server/session";
-import { claimPrize } from "@/lib/server/prize";
-
-// POST /api/leagues/:id/claim — winner only; sends the prize (network per NEXT_PUBLIC_PRIZE_NETWORK).
-export async function POST(_request: Request, ctx: { params: Promise<{ id: string }> }) {
+import { prepareClaim, recordClaim } from "@/lib/server/prize";
+export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const wallet = await sessionWallet();
   if (!wallet) return Response.json({ error: "Sign in with your wallet first" }, { status: 401 });
   const { id } = await ctx.params;
-  const result = await claimPrize(id, wallet);
-  return Response.json(result, { status: result.status === "failed" ? 400 : result.status === "pending" ? 202 : 200 });
+  try {
+    const body = await request.json().catch(() => ({}));
+    return Response.json(body.signature ? await recordClaim(id, wallet, body.signature) : await prepareClaim(id, wallet));
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 400 });
+  }
 }

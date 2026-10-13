@@ -12,6 +12,7 @@ import { PageSkeleton, Shell } from "@/components/shell/Shell";
 import { managerCount } from "@/components/league/LeagueFacts";
 import { Achv, Avatar, Badge, Clock, CoImg, CoLogo, Progress } from "@/components/ui/bits";
 import { Icon } from "@/components/ui/Icon";
+import { VaultPanel } from "@/components/league/VaultPanel";
 import { PRIZE_SUFFIX } from "@/lib/network";
 
 export function LobbyView({ slug }: { slug: string }) {
@@ -86,6 +87,8 @@ export function LobbyView({ slug }: { slug: string }) {
               <CoLogo id={league.prize.company} size="lg" style={{ boxShadow: "0 0 0 2px var(--navy-line)" }} />
               <div className="stack" style={{ gap: 2 }}>
                 <span className="eyebrow">Prize · winner takes it</span>
+              <span className="caption">{next?.vault?.funded && !next.vault.cancelled ? "Escrowed on Solana ✓" : "Prize escrow awaiting funding"}</span>
+
                 <span className="h-3" style={{ fontSize: 28 }}>
                   ${league.prize.usd} in {COMPANY_BY_ID[league.prize.company].name} PreStock{PRIZE_SUFFIX}
                 </span>
@@ -276,6 +279,7 @@ export function LobbyView({ slug }: { slug: string }) {
           </aside>
         </div>
       </div>
+      {next && <div className="container" style={{ paddingBottom: 32 }}><VaultPanel view={next} /></div>}
     </Shell>
   );
 }

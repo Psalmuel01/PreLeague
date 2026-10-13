@@ -1,69 +1,62 @@
-# Prizes
+# Solana Devnet prize escrow
 
-The winner of each round claims a prize: the league's prize company, worth the prize amount in USD at the settlement price. It's paid from a server-held **prize wallet** (`PRIZE_AUTHORITY_SECRET`) straight to the wallet they played with.
+The organizer deposits the mock SPL prize token before a round starts. Scoring stays offchain. After settlement the organizer commits the winning wallet and SHA-256 receipt hash; the winner signs their own claim, transferring the escrow to their associated token account. Finalization and payout cannot repeat. The organizer can cancel and recover funds before finalization.
 
-`NEXT_PUBLIC_PRIZE_NETWORK` picks the network. The claim page, footer and explorer links all follow it, so the UI never says "mainnet" when it isn't.
+Amounts are fixed in raw token units at funding using a fresh prize-company quote. The advertised USD prize is its value at funding, not a guarantee at settlement. Devnet mock tokens have no real monetary value. This program supports the classic SPL Token program only, intentionally excluding Token-2022 and mainnet.
 
-## Devnet (default)
+## Build, test and deploy
 
-This is free and good for demos and judging. Prizes are paid in a mock prize token, and the UI labels them "devnet mock".
+Install Anchor 0.31.1 and a compatible Solana/Agave CLI. Never commit wallet or program keypairs. Back up the program keypair locally before deployment.
 
-```bash
-npm run prize:setup
+```sh
+npm ci
+solana config set --url devnet
+solana-keygen new
+solana airdrop 5
+anchor build
+anchor keys sync
+anchor build
+anchor test --provider.cluster localnet
+anchor deploy --provider.cluster devnet
 ```
 
-This creates the prize wallet and a mock prize token (`PRIZE_MINT`), mints 1,000 tokens to the wallet, and writes both to `.env.local`. It requests a devnet SOL airdrop. If the faucet is rate-limited, send devnet SOL to the printed address from <https://faucet.solana.com> and run it again. Re-running is safe: it reuses the wallet and the mint.
+`Anchor.toml` and `declare_id!` use the deployed Devnet program ID. If generating a new program keypair, synchronize both the Devnet and localnet declarations using `anchor keys sync` for each provider cluster. Do not configure the frontend with an undeployed ID. Run tests against a local validator; the test script explicitly rejects public networks.
 
-## Mainnet
+Set `NEXT_PUBLIC_VAULT_PROGRAM_ID` to the deployed program address, `NEXT_PUBLIC_VAULT_RPC_URL` to a Devnet RPC, and `NEXT_PUBLIC_PRIZE_NETWORK=devnet`. Set `PRIZE_AUTHORITY_ADDRESS` to the public organizer wallet address so verification and claim preparation can run without the organizer secret. Each transaction path checks the Devnet genesis hash. Keep wallet RPC on mainnet if needed for identity; prize transactions use their own Devnet connection.
 
-Prizes are real PreStocks.
+```sh
+npm run prize:setup
+npm run db:migrate
+npm run dev
+npm run smoke
+```
 
-1. Set `NEXT_PUBLIC_PRIZE_NETWORK=mainnet` and `PRIZE_AUTHORITY_SECRET`. If you don't have a secret yet, `npm run prize:wallet` generates one.
-2. Fund the wallet address:
-   - **SOL:** at least 0.0025 per claim. This covers the network fee and the winner's token account (~0.002 SOL rent) if they don't hold that PreStock yet.
-   - **Each prize PreStock**, worth at least the prize amount, for every round you expect to pay out.
-3. Check it (example output):
+The organizer needs Devnet SOL for rent/funding/finalization plus a sufficient mock-token float. Winners need Devnet SOL to pay fees and create their token account. Airdrops can be rate-limited; use the Solana faucet if necessary.
 
-   ```bash
-   npm run prize:wallet
-   ```
+Scheduler ticks fund the nearest upcoming round of each series and retry finalization of completed rounds. Errors are logged under `vault`; scoring results remain intact. The admin API also accepts `fund` and `finalize` with a `leagueId`. Funding and finalization are idempotent by checking onchain state. A crash after confirmation can lose the optional transaction link, but cannot duplicate funding or change the winner. The league account remains verifiable in Explorer.
 
-   ```
-   Prize wallet (mainnet): DaCf…REkve
-   SOL: 0.01
-     ANTHROPIC   0.001000  ≈ $1.07
-   League prizes (one winner each round):
-     Stocklana Sprint         $25 in SpaceX  → NOT covered (hold $0.00)
-   ```
+The claim API prepares an unsigned transaction. The client signs and submits it, then posts its signature for confirmed transaction verification and history. If the browser closes after submission, the claimed state is still read directly from Solana. Claims do not require the organizer secret.
 
-4. Redeploy. `NEXT_PUBLIC_*` values are baked into the client at build time.
+The results panel exposes the canonical receipt, recomputes its SHA-256 in the browser, and compares it with the commitment fetched from Devnet. This proves the receipt matches the authority's committed result; it does not prove scoring ran onchain or eliminate trust in the settlement authority.
 
-To keep the float small, lower the `prize.usd` amounts in [`lib/leagues.ts`](../lib/leagues.ts).
+## Demo
 
-## How a payout works
+Fund the next league, connect and sign in, draft three companies, seed labelled demo managers if desired, start the round, show live price-driven standings, end/settle, finalize, open Verify on Solana, claim with the winning wallet, and open the claim transaction in Explorer. Demo managers are excluded from prize eligibility.
 
-[`lib/server/prize.ts`](../lib/server/prize.ts):
+Contract tests cover initialization, funding, repeated funding, authorization, premature claims, wrong winners, successful claims, repeated claims, immutable winners, cancellation/refund and invalid mints. Existing scoring tests remain unchanged.
 
-1. Only the recorded winner of a `completed` round can claim.
-2. **Amount:** prize USD ÷ the settlement price gives displayed tokens. Dividing by the mint's display multiplier and scaling by its decimals gives raw units. PreStocks can carry a display multiplier; SpaceX shows ×5 after its split.
-3. **Checks:** the prize wallet must hold the full amount and enough SOL. Otherwise the claim fails with a clear message and nothing is sent. A partial prize is never paid.
-4. **One transaction:** create the winner's token account if it's missing, then do the transfer. For Token-2022 PreStocks this is `TransferCheckedWithFee`. PreStocks withhold a 1–3% transfer fee, so the winner receives slightly less than the headline value.
-5. **No double payouts:** the transaction is signed and its signature saved to `prize_claims` *before* it's sent. If confirmation is slow or the server dies mid-send, the claim stays `pending`. The next claim call looks that signature up on-chain:
-   - landed → marked `sent` and the same transaction is returned;
-   - failed on-chain → marked `failed` and can be retried;
-   - not landed and its blockhash has expired → it can never land, so it's safe to send a fresh one;
-   - otherwise → still `pending` ("on its way").
+P2 sharing already exists in the product; additional share artwork is deferred until the full Devnet lifecycle passes.
 
-   A claim left pending on one network is never resolved or resent on the other.
+## Verified deployment (13 October 2026)
 
-Use a private RPC (`PRIZE_RPC_URL`) in production. The public endpoints rate-limit and confirm slowly.
+A local program-keypair backup is in `.anchor-keys/preleague_vault-keypair.json` (gitignored), outside Cargo build artifacts. Keep it private and restore it to `target/deploy` if rebuilding after a clean. The organizer secret remains in `.env.local`.
 
-## Testing
+Program: [EtZ1sKD7NJ6Gd1vs8dSBFDjwTZ66XGUwgG9dCeZpXUaq](https://explorer.solana.com/address/EtZ1sKD7NJ6Gd1vs8dSBFDjwTZ66XGUwgG9dCeZpXUaq?cluster=devnet).
 
-`npm run smoke` plays a full round against a running server and claims the prize:
-- on **devnet**, it claims when `PRIZE_MINT` is set;
-- on **mainnet**, it only claims with `SMOKE_CLAIM=1`, because that spends real tokens.
+[Deployment transaction](https://explorer.solana.com/tx/SwyzEDcaFATNQCQDNCujaXvivG5Ct5TnPjvGf779yxaVwT4HCLr8ZYvA4q2Are7sNXUnQdzp7Zu3tixpEttkL8z?cluster=devnet). The program account was verified executable. `devnet-deployment.json` records the binary SHA-256 and public addresses; `preleague_vault.idl.json` is the generated interface.
 
-It also checks that a second claim returns the same transaction.
+[Winner-signed Devnet claim](https://explorer.solana.com/tx/3NSGVRcm4dxCjenTMwyoXNDkP5tgMkoc8Tkn25A5qv1aWGi1y7WYfUBPSDgDkPLjBTnvRjgFfv6dUSxByYWh2Gnj?cluster=devnet). `devnet-vault-proof.json` records funding, finalization, canonical receipt, hash, and the verified token balance. This is an explicitly synthetic contract fixture, not live market scoring or an organic player. `npm run vault:verify` produces another fixture on Devnet.
 
-Run it against a local database, not production: `DATABASE_URL=postgres://…/preleague npm run smoke`.
+The first full app attempt was blocked by null token prices. A later recheck returned valid live token prices for seven companies in the existing pool, while SpaceX remained absent. The AI Unicorn Sprint lifecycle then passed every smoke check using live prices and labelled automated test wallets: funded escrow before drafting, live standings, deterministic settlement, immutable winner/hash commitment, wallet-signed claim, and rejection of a second claim. The short test round had unchanged boundary prices, so returns were zero and deterministic tie-breaking selected the winner. This is integration verification, not organic participation or a human Phantom-wallet demonstration.
+
+[Live-price app claim transaction](https://explorer.solana.com/tx/soZ23yzMds8YGJ9RjAUEufgrSKQPKwyHJG7GjDYu9Aw1UUhYe6corLwqzcuwqUoXhd3WBcxTtQP36m8NjAvVTv9?cluster=devnet). `devnet-live-smoke.json` records the actual prices, standings, canonical receipt, funding/finalization transactions, and claimed state. Run `SMOKE_SERIES=ai-unicorn-sprint npm run smoke` against the running app to repeat it. SpaceX-dependent leagues still need a usable SpaceX token price. Mark prices and fallback quotes are never substituted.

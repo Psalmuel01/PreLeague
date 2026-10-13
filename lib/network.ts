@@ -3,7 +3,7 @@
 export type PrizeNetwork = "devnet" | "mainnet";
 
 export function prizeNetwork(): PrizeNetwork {
-  return process.env.NEXT_PUBLIC_PRIZE_NETWORK === "mainnet" ? "mainnet" : "devnet";
+  return "devnet";
 }
 
 export function explorerTx(sig: string, network: PrizeNetwork): string {

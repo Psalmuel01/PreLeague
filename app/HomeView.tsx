@@ -79,7 +79,7 @@ export function HomeView() {
               Draft tomorrow’s <span className="hl">winners.</span>
             </h1>
             <p className="lead" style={{ maxWidth: 520, color: "var(--navy-ink-2)" }}>
-              Pick a squad of three private companies, score on their real market moves, and win {MAINNET ? "PreStock prizes on Solana" : "prizes on Solana"}.
+              PreLeague is fantasy sports for private companies. Draft three PreStocks, compete on their real market performance, and claim rewards escrowed on Solana.
             </p>
             <div className="row wrap" style={{ gap: 12, paddingTop: 6 }}>
               <Link className="btn btn-lime btn-lg" href={live && current.entry ? `/league/${league.slug}/live` : `/league/${league.slug}`}>
@@ -152,7 +152,7 @@ export function HomeView() {
             {[
               ["Draft your squad", "Pick three private companies you think will outperform. Every pick counts equally."],
               ["Score on real moves", "Your squad scores with real PreStock prices. You never buy what you draft."],
-              ["Top the table, win", MAINNET ? "The best real player at the final whistle wins a PreStock prize, sent to your wallet." : "The best real player at the final whistle wins the prize, paid on Solana devnet in this hackathon build."],
+              ["Top the table, win", MAINNET ? "The best real player at the final whistle wins a PreStock prize, sent to your wallet." : "The best real player claims the escrowed prize on Solana Devnet. This hackathon build uses mock tokens."],
             ].map(([title, body], i) => (
               <li key={title} className="card step-card">
                 <span className="score step-num">{i + 1}</span>

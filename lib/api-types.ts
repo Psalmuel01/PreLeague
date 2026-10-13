@@ -43,6 +43,8 @@ export type RoundJSON = {
   standings: StandingJSON[] | null;
   winnerWallet: string | null;
   reviewReason: string | null;
+  vault: (import("./solana/vault").VaultState & { fundingTx: string | null; finalizationTx: string | null; receipt: import("./solana/receipt").SettlementReceipt | null; receiptHash: string | null }) | null;
+  vaultError: string | null;
   claim: { status: "pending" | "sent" | "failed"; tx: string | null; error: string | null; network: string } | null;
 };
 

@@ -25,7 +25,7 @@ This setup runs PreLeague on **Vercel (Hobby is fine) + Supabase**, with Supabas
 | `DATABASE_URL` | the pooler string from step 1 |
 | `ADMIN_SECRET` | a long random string |
 | `CRON_SECRET` | a long random string |
-| `NEXT_PUBLIC_PRIZE_NETWORK` | `devnet` or `mainnet` |
+| `NEXT_PUBLIC_PRIZE_NETWORK` | `devnet` only |
 | `PRIZE_AUTHORITY_SECRET` | the prize wallet key (see [prizes.md](prizes.md)) |
 | `PRIZE_MINT` | devnet only: the mock prize token |
 | `PRIZE_RPC_URL`, `NEXT_PUBLIC_SOLANA_RPC_URL` | optional private RPCs |
@@ -56,3 +56,5 @@ On a single long-lived server (Railway, Fly, a VM), set `RUN_JOBS_IN_PROCESS=1` 
 
 - `/admin` (with `ADMIN_SECRET`) shows the latest snapshot and the job log. If "latest snapshot" isn't ticking forward, the cron isn't reaching the app.
 - "Waiting for kick-off prices…" on a live round means the scheduler hasn't recorded snapshots since kick-off yet. It clears within a minute or two once the cron is running.
+
+Prize escrow also requires the Devnet Anchor deployment and NEXT_PUBLIC_VAULT_PROGRAM_ID; follow [prize deployment](prizes.md) before enabling it.

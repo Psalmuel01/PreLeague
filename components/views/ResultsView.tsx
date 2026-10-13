@@ -16,6 +16,7 @@ import { Achv, Avatar, Badge, CoLogo, Delta, Medal } from "@/components/ui/bits"
 import { Icon } from "@/components/ui/Icon";
 import { LeagueTable } from "@/components/ui/LeagueTable";
 import { Pitch } from "@/components/ui/Pitch";
+import { VaultPanel } from "@/components/league/VaultPanel";
 import { PRIZE_SUFFIX } from "@/lib/network";
 
 const ORDINAL = ["first", "second", "third"];
@@ -345,6 +346,7 @@ export function ResultsView({ slug, roundId }: { slug: string; roundId?: string 
         </div>
       </section>
 
+      <div className="container" style={{ paddingTop: 32 }}><VaultPanel view={view} /></div>
       <section style={{ padding: "48px 0 0" }}>
         <div className="container">
           <div className="card" style={{ overflow: "hidden" }}>

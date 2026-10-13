@@ -1,0 +1,305 @@
+{
+  "source": "Live PreStocks token prices; automated test wallets labelled (test), not organic participants",
+  "leagueId": "ai-unicorn-sprint-r302",
+  "series": "ai-unicorn-sprint",
+  "winner": "5uYgCBRN5KFfxrV1X46HuQFuZ2Z45pk5E2g5qVzSRKBa",
+  "claimTx": "soZ23yzMds8YGJ9RjAUEufgrSKQPKwyHJG7GjDYu9Aw1UUhYe6corLwqzcuwqUoXhd3WBcxTtQP36m8NjAvVTv9",
+  "vault": {
+    "decimals": 6,
+    "address": "sfWfEwTyBm4o4LrSRTwi8bBvsUUCVQa9zF5br8xKYjL",
+    "program": "EtZ1sKD7NJ6Gd1vs8dSBFDjwTZ66XGUwgG9dCeZpXUaq",
+    "authority": "DaCfBVgSNZB7UfY2qaTAogLuLMrDgcrw2FxGc98REkve",
+    "mint": "DY485TGBroyRE3ZF9jCKAvBcEQN8EECjwGzsgLF8ReGB",
+    "amount": "34363",
+    "winner": "5uYgCBRN5KFfxrV1X46HuQFuZ2Z45pk5E2g5qVzSRKBa",
+    "settlementHash": "f1c8842c87bea2b2a09bfb1f25030a80ae86d9d1ba7b2e4bfdbd02cd4c674823",
+    "funded": true,
+    "finalized": true,
+    "claimed": true,
+    "cancelled": false,
+    "fundingTx": "3RUcZ9TDzssrpQSsgJeAv3qB6QQvAxcUt5rVzyazVAs56kp6YSqtuVXmruEGi4AEEhHJmLbDAvZE28iSucakGVMa",
+    "finalizationTx": "Y3x2LbZmmRof7bPKWkFKxg7euXGVRK2vMKFjQBKQonJwXpDf6FHBr4MYJKAXeXC5RbSuZaEHYc632WdWbC9ZoF8",
+    "receipt": {
+      "round": 302,
+      "endsAt": "2026-10-13T07:39:58.706Z",
+      "leagueId": "ai-unicorn-sprint-r302",
+      "startsAt": "2026-10-13T07:39:47.000Z",
+      "endPrices": {
+        "OPENAI": 1445.4715578519,
+        "FIGUREAI": 158.216592263839,
+        "ANTHROPIC": 1052.14764660733,
+        "NEURALINK": 353.426109860061
+      },
+      "settledAt": "2026-10-13T07:40:03.092Z",
+      "startPrices": {
+        "OPENAI": 1445.4715578519,
+        "FIGUREAI": 158.216592263839,
+        "ANTHROPIC": 1052.14764660733,
+        "NEURALINK": 353.426109860061
+      },
+      "winningScore": 0,
+      "winningWallet": "5uYgCBRN5KFfxrV1X46HuQFuZ2Z45pk5E2g5qVzSRKBa"
+    },
+    "receiptHash": "f1c8842c87bea2b2a09bfb1f25030a80ae86d9d1ba7b2e4bfdbd02cd4c674823"
+  },
+  "prices": {
+    "start": {
+      "OPENAI": 1445.4715578519,
+      "FIGUREAI": 158.216592263839,
+      "ANTHROPIC": 1052.14764660733,
+      "NEURALINK": 353.426109860061
+    },
+    "now": {
+      "OPENAI": 1445.4715578519,
+      "FIGUREAI": 158.216592263839,
+      "ANTHROPIC": 1052.14764660733,
+      "NEURALINK": 353.426109860061
+    },
+    "nowAt": 1791877198706,
+    "stale": false
+  },
+  "standings": [
+    {
+      "id": "bot:tobi",
+      "name": "Tobi",
+      "initials": "T",
+      "avatar": "av-4",
+      "mono": false,
+      "bot": true,
+      "you": false,
+      "picks": [
+        "figureai",
+        "anthropic",
+        "openai"
+      ],
+      "lockedAt": 1791877080000,
+      "rank": 1,
+      "portfolioReturn": 0,
+      "pickReturns": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "5uYgCBRN5KFfxrV1X46HuQFuZ2Z45pk5E2g5qVzSRKBa",
+      "name": "Alice (test)",
+      "initials": "A",
+      "avatar": "av-you",
+      "mono": false,
+      "bot": false,
+      "you": true,
+      "picks": [
+        "openai",
+        "figureai",
+        "neuralink"
+      ],
+      "lockedAt": 1791877176514,
+      "rank": 2,
+      "portfolioReturn": 0,
+      "pickReturns": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "2HHQ1mK6ghBNnDmBaRyUtDivE1zPHJBWd4VE8onfWg4S",
+      "name": "Bob (test)",
+      "initials": "B",
+      "avatar": "av-8",
+      "mono": false,
+      "bot": false,
+      "you": false,
+      "picks": [
+        "anthropic",
+        "figureai",
+        "neuralink"
+      ],
+      "lockedAt": 1791877180208,
+      "rank": 3,
+      "portfolioReturn": 0,
+      "pickReturns": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "bot:kenny",
+      "name": "Kenny",
+      "initials": "K",
+      "avatar": "av-4",
+      "mono": false,
+      "bot": true,
+      "you": false,
+      "picks": [
+        "openai",
+        "neuralink",
+        "figureai"
+      ],
+      "lockedAt": 1791877180415,
+      "rank": 4,
+      "portfolioReturn": 0,
+      "pickReturns": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "bot:michelle",
+      "name": "Michelle",
+      "initials": "M",
+      "avatar": "av-7",
+      "mono": false,
+      "bot": true,
+      "you": false,
+      "picks": [
+        "anthropic",
+        "openai",
+        "neuralink"
+      ],
+      "lockedAt": 1791877180777,
+      "rank": 5,
+      "portfolioReturn": 0,
+      "pickReturns": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "bot:marcus",
+      "name": "Marcus",
+      "initials": "M",
+      "avatar": "av-2",
+      "mono": false,
+      "bot": true,
+      "you": false,
+      "picks": [
+        "neuralink",
+        "figureai",
+        "anthropic"
+      ],
+      "lockedAt": 1791877182261,
+      "rank": 6,
+      "portfolioReturn": 0,
+      "pickReturns": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "bot:ada",
+      "name": "Ada",
+      "initials": "A",
+      "avatar": "av-4",
+      "mono": false,
+      "bot": true,
+      "you": false,
+      "picks": [
+        "openai",
+        "neuralink",
+        "figureai"
+      ],
+      "lockedAt": 1791877182675,
+      "rank": 7,
+      "portfolioReturn": 0,
+      "pickReturns": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "bot:priya",
+      "name": "Priya",
+      "initials": "P",
+      "avatar": "av-6",
+      "mono": false,
+      "bot": true,
+      "you": false,
+      "picks": [
+        "anthropic",
+        "openai",
+        "neuralink"
+      ],
+      "lockedAt": 1791877183092,
+      "rank": 8,
+      "portfolioReturn": 0,
+      "pickReturns": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "bot:8frt",
+      "name": "Nia",
+      "initials": "N",
+      "avatar": "av-6",
+      "mono": false,
+      "bot": true,
+      "you": false,
+      "picks": [
+        "figureai",
+        "anthropic",
+        "openai"
+      ],
+      "lockedAt": 1791877183493,
+      "rank": 9,
+      "portfolioReturn": 0,
+      "pickReturns": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "bot:sade",
+      "name": "Sade",
+      "initials": "S",
+      "avatar": "av-2",
+      "mono": false,
+      "bot": true,
+      "you": false,
+      "picks": [
+        "neuralink",
+        "figureai",
+        "anthropic"
+      ],
+      "lockedAt": 1791877184388,
+      "rank": 10,
+      "portfolioReturn": 0,
+      "pickReturns": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "bot:diego",
+      "name": "Diego",
+      "initials": "D",
+      "avatar": "av-6",
+      "mono": false,
+      "bot": true,
+      "you": false,
+      "picks": [
+        "openai",
+        "neuralink",
+        "figureai"
+      ],
+      "lockedAt": 1791877184801,
+      "rank": 11,
+      "portfolioReturn": 0,
+      "pickReturns": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

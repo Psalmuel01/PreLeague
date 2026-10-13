@@ -34,7 +34,7 @@ const RULES: [string, string][] = [
     "Prizes",
     MAINNET
       ? "The prize winner receives the league’s prize in PreStock, worth the prize amount at the final price, sent to the wallet they played with. PreStocks withholds a 1–3% transfer fee. Squads themselves are virtual — you never buy what you draft."
-      : "Hackathon build: the prize winner receives a mock prize token on Solana devnet, sized to the prize value and sent to the wallet they played with. Real PreStock prizes need a funded prize wallet. Squads themselves are virtual — you never buy what you draft.",
+      : "Hackathon build: prizes are mock tokens escrowed on Solana Devnet before kick-off. Token amounts are fixed at funding using the current prize-company price. Winners sign their own claims; squads are virtual — you never buy what you draft.",
   ],
 ];
 
@@ -43,7 +43,7 @@ const FAQS = [
   { q: "What is a PreStock?", a: "A PreStock is a Solana token that gives economic exposure to a private company such as OpenAI or SpaceX. Holding one isn’t the same as owning the company’s shares directly. See prestocks.com for how they work." },
   { q: "How do I get my prize?", a: MAINNET
       ? "Claim it from the results screen after the final whistle. It’s sent straight to the wallet you played with."
-      : "Claim it from the results screen after the final whistle. In this hackathon build it’s a mock prize token on Solana devnet, sent to the wallet you played with." },
+      : "After settlement is committed to Solana, sign the claim from the results screen with your winning wallet. The vault sends your escrowed mock tokens on Devnet. You need a little Devnet SOL for fees." },
   { q: "Why is the round only 15 minutes?", a: "Sprint rounds are built for quick, live competition. Daily and weekly leagues run on the same rules over longer windows." },
 ];
 

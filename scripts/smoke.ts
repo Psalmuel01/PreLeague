@@ -2,11 +2,14 @@
 // two wallets sign in, draft, get locked out at kick-off, the round settles,
 // the winner is recorded, and results/claims behave. Uses admin controls to
 // compress the round. Usage: npm run smoke
+import { writeFileSync } from "node:fs";
 import bs58 from "bs58";
 import nacl from "tweetnacl";
-import { Keypair } from "@solana/web3.js";
+import { assertDevnet, vaultConnection } from "../lib/solana/vault";
+import { Keypair, Transaction, SystemProgram, sendAndConfirmTransaction } from "@solana/web3.js";
 
 const BASE = process.env.SMOKE_URL || "http://localhost:3000";
+const SERIES = process.env.SMOKE_SERIES || "stocklana-sprint";
 const ADMIN = process.env.ADMIN_SECRET || "";
 
 type Json = Record<string, unknown>;
@@ -52,8 +55,8 @@ function assert(ok: boolean, label: string, detail?: unknown) {
 }
 
 async function main() {
-  const alice = new Player("Alice");
-  const bob = new Player("Bob");
+  const alice = new Player("Alice (test)");
+  const bob = new Player("Bob (test)");
   const mallory = new Player("Mallory");
 
   const anon = await alice.call("/api/leagues/x/lineup", { picks: [] });
@@ -68,20 +71,31 @@ async function main() {
   await alice.signIn();
   await bob.signIn();
 
-  const { json: s } = await alice.call("/api/series/stocklana-sprint?which=next");
+  const { json: s } = await alice.call(`/api/series/${encodeURIComponent(SERIES)}?which=next`);
   const id = s.nextId as string;
   assert(Boolean(id), `next round found (${id})`);
+  const pool = (s.round as Json)?.pool as string[];
+  if (!id || !pool || pool.length < 4) throw new Error("Smoke test needs an upcoming round with at least four companies");
+  const firstPicks = pool.slice(0, 3);
+  const editedPicks = [pool[0], pool[2], pool[3]];
+  const secondPicks = pool.slice(-3);
 
-  const dup = await alice.call(`/api/leagues/${id}/lineup`, { picks: ["openai", "openai", "spacex"] });
+  if (process.env.NEXT_PUBLIC_VAULT_PROGRAM_ID) {
+    await admin("snapshot");
+    const funded = await admin("fund", id);
+    assert(funded.status === 200, "prize funded before drafting", funded.json);
+    if (funded.status !== 200) throw new Error("Smoke test stopped: escrow needs fresh live token prices and sufficient organizer funds");
+  }
+  const dup = await alice.call(`/api/leagues/${id}/lineup`, { picks: [pool[0], pool[0], pool[1]] });
   assert(dup.status === 400, "duplicate picks rejected");
-  const two = await alice.call(`/api/leagues/${id}/lineup`, { picks: ["openai", "spacex"] });
+  const two = await alice.call(`/api/leagues/${id}/lineup`, { picks: pool.slice(0, 2) });
   assert(two.status === 400, "two picks rejected");
-  const ok1 = await alice.call(`/api/leagues/${id}/lineup`, { picks: ["openai", "anthropic", "spacex"] });
-  assert(ok1.status === 200, "Alice locks OpenAI/Anthropic/SpaceX", ok1.json);
-  const edit = await alice.call(`/api/leagues/${id}/lineup`, { picks: ["openai", "kalshi", "spacex"] });
+  const ok1 = await alice.call(`/api/leagues/${id}/lineup`, { picks: firstPicks });
+  assert(ok1.status === 200, `Alice locks ${firstPicks.join("/")}`, ok1.json);
+  const edit = await alice.call(`/api/leagues/${id}/lineup`, { picks: editedPicks });
   assert(edit.status === 200, "Alice edits before kick-off");
-  const ok2 = await bob.call(`/api/leagues/${id}/lineup`, { picks: ["polymarket", "neuralink", "anduril"] });
-  assert(ok2.status === 200, "Bob locks Polymarket/Neuralink/Anduril");
+  const ok2 = await bob.call(`/api/leagues/${id}/lineup`, { picks: secondPicks });
+  assert(ok2.status === 200, `Bob locks ${secondPicks.join("/")}`);
 
   if (process.env.SMOKE_BOTS !== "0") {
     const bots = await admin("bots", id);
@@ -91,7 +105,7 @@ async function main() {
   const start = await admin("start", id);
   assert(start.status === 200, "admin kicks off the round", start.json);
 
-  const late = await bob.call(`/api/leagues/${id}/lineup`, { picks: ["openai", "kalshi", "spacex"] });
+  const late = await bob.call(`/api/leagues/${id}/lineup`, { picks: editedPicks });
   assert(late.status === 409, "edits rejected after kick-off");
 
   // Standings appear once the first snapshot after kick-off is recorded (up to a minute).
@@ -102,7 +116,7 @@ async function main() {
   }
   const standings = live.json.standings as { name: string; rank: number }[] | null;
   assert(live.json.status === "live" && Array.isArray(standings), "live leaderboard has standings", live.json.status);
-  assert((live.json.entry as Json | null)?.picks?.toString() === "openai,kalshi,spacex", "server kept Alice's edited lineup");
+  assert((live.json.entry as Json | null)?.picks?.toString() === editedPicks.toString(), "server kept Alice's edited lineup");
 
   await new Promise((r) => setTimeout(r, 2500));
   await admin("snapshot");
@@ -126,23 +140,33 @@ async function main() {
   const notMine = await loser.call(`/api/leagues/${id}/claim`, {});
   assert(notMine.status === 400, `${loser.name} (not the winner) can't claim`);
 
-  // Prize transfer: on by default on devnet (when PRIZE_MINT is set); on mainnet it spends
-  // real tokens, so it needs SMOKE_CLAIM=1.
-  const mainnet = process.env.NEXT_PUBLIC_PRIZE_NETWORK === "mainnet";
-  if (mainnet ? process.env.SMOKE_CLAIM === "1" : Boolean(process.env.PRIZE_MINT)) {
-    const winner = [alice, bob].find((p) => p.wallet === final.json.winnerWallet);
+  if (process.env.NEXT_PUBLIC_VAULT_PROGRAM_ID && process.env.PRIZE_MINT) {
+    const finalized = await admin("finalize", id);
+    assert(finalized.status === 200, "winner committed to Devnet", finalized.json);
+    const winner = [alice, bob].find(p => p.wallet === final.json.winnerWallet);
     if (winner) {
-      let paid = await winner.call(`/api/leagues/${id}/claim`, {});
-      // A slow RPC confirmation leaves the claim pending; asking again resolves it from the chain.
-      for (let i = 0; i < 6 && paid.json.status === "pending"; i++) {
-        await new Promise((r) => setTimeout(r, 5000));
-        paid = await winner.call(`/api/leagues/${id}/claim`, {});
+      const connection = vaultConnection(); await assertDevnet(connection);
+      try {
+        const airdrop = await connection.requestAirdrop(winner.kp.publicKey, 100_000_000);
+        await connection.confirmTransaction(airdrop);
+      } catch {
+        const organizer = Keypair.fromSecretKey(bs58.decode(process.env.PRIZE_AUTHORITY_SECRET!));
+        await sendAndConfirmTransaction(connection, new Transaction().add(SystemProgram.transfer({ fromPubkey: organizer.publicKey, toPubkey: winner.kp.publicKey, lamports: 10_000_000 })), [organizer]);
       }
-      assert(paid.json.status === "sent" && Boolean(paid.json.tx), `${winner.name} claims the prize on ${mainnet ? "mainnet" : "devnet"} (tx ${String(paid.json.tx).slice(0, 12)}…)`, paid.json);
+      const prepared = await winner.call(`/api/leagues/${id}/claim`, {});
+      assert(prepared.status === 200 && Boolean(prepared.json.transaction), "unsigned winner claim prepared", prepared.json);
+      const transaction = Transaction.from(Buffer.from(prepared.json.transaction as string, "base64"));
+      transaction.sign(winner.kp);
+      const signature = await connection.sendRawTransaction(transaction.serialize());
+      await connection.confirmTransaction({ signature, blockhash: prepared.json.blockhash as string, lastValidBlockHeight: prepared.json.lastValidBlockHeight as number });
+      const paid = await winner.call(`/api/leagues/${id}/claim`, { signature });
+      assert(paid.json.status === "sent", `winner signed claim confirmed (${signature})`, paid.json);
       const twice = await winner.call(`/api/leagues/${id}/claim`, {});
-      assert(twice.json.status === "sent" && twice.json.tx === paid.json.tx, "second claim returns the same transfer, no double payout");
-    } else {
-      console.log("• another wallet won this round; skipping claim");
+      assert(twice.status === 400, "second claim rejected");
+      if (!failures) {
+        const confirmedRound = await winner.call(`/api/leagues/${id}`);
+        writeFileSync("docs/devnet-live-smoke.json", JSON.stringify({ source: "Live PreStocks token prices; automated test wallets labelled (test), not organic participants", leagueId: id, series: SERIES, winner: winner.wallet, claimTx: signature, vault: confirmedRound.json.vault, prices: confirmedRound.json.prices, standings: confirmedRound.json.standings }, null, 2) + "\n");
+      }
     }
   }
 

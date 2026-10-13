@@ -1,0 +1,42 @@
+{
+  "source": "synthetic contract verification fixture; not live scoring or an organic player",
+  "program": "EtZ1sKD7NJ6Gd1vs8dSBFDjwTZ66XGUwgG9dCeZpXUaq",
+  "leagueId": "vault-verification-1791872848113",
+  "fundingTx": "3pymGn4vxrPUjMA4nYm6b8XHLcLN3gB8QGYd6NPD3mGyYRMvqCQBrs7q8P8k34VUzMQYi5XkqgBFSbVUcb7QKHph",
+  "settlementTx": "43ghpz8DSx3JNqv6hEW2adAquLdTCNH5y26vh5uLzTSvwnPdH7nuzbL8YYvPbHKc3J8wFEvXrSLut2UAo5frzUix",
+  "claimTx": "3NSGVRcm4dxCjenTMwyoXNDkP5tgMkoc8Tkn25A5qv1aWGi1y7WYfUBPSDgDkPLjBTnvRjgFfv6dUSxByYWh2Gnj",
+  "receipt": {
+    "payload": {
+      "leagueId": "vault-verification-1791872848113",
+      "round": 1,
+      "startsAt": "2026-10-13T06:27:30.478Z",
+      "endsAt": "2026-10-13T06:27:30.478Z",
+      "startPrices": {
+        "FIXTURE": 100
+      },
+      "endPrices": {
+        "FIXTURE": 101
+      },
+      "winningWallet": "3YriZs4CohTGRdM3h7mwQfYfrZJZFj9nRVqCRb3MkVof",
+      "winningScore": 0.01,
+      "settledAt": "2026-10-13T06:27:30.478Z"
+    },
+    "serialized": "{\"endPrices\":{\"FIXTURE\":101},\"endsAt\":\"2026-10-13T06:27:30.478Z\",\"leagueId\":\"vault-verification-1791872848113\",\"round\":1,\"settledAt\":\"2026-10-13T06:27:30.478Z\",\"startPrices\":{\"FIXTURE\":100},\"startsAt\":\"2026-10-13T06:27:30.478Z\",\"winningScore\":0.01,\"winningWallet\":\"3YriZs4CohTGRdM3h7mwQfYfrZJZFj9nRVqCRb3MkVof\"}",
+    "hash": "dab66b94f0f0b1c5d90e75a6488aeba440f4a8266a5908d2b86ec1e470b15ad9"
+  },
+  "state": {
+    "decimals": 6,
+    "address": "AXTL2vwcDm3MK4SbFfq7XC4UfFXH1vi6dqZ8vWxNi9MS",
+    "program": "EtZ1sKD7NJ6Gd1vs8dSBFDjwTZ66XGUwgG9dCeZpXUaq",
+    "authority": "DaCfBVgSNZB7UfY2qaTAogLuLMrDgcrw2FxGc98REkve",
+    "mint": "DY485TGBroyRE3ZF9jCKAvBcEQN8EECjwGzsgLF8ReGB",
+    "amount": "1000000",
+    "winner": "3YriZs4CohTGRdM3h7mwQfYfrZJZFj9nRVqCRb3MkVof",
+    "settlementHash": "dab66b94f0f0b1c5d90e75a6488aeba440f4a8266a5908d2b86ec1e470b15ad9",
+    "funded": true,
+    "finalized": true,
+    "claimed": true,
+    "cancelled": false
+  },
+  "receivedRaw": "1000000"
+}

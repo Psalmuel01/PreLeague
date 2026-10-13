@@ -3,6 +3,8 @@ import { q } from "@/lib/server/db";
 import { collectPrices } from "@/lib/server/prices";
 import { adminCancel, adminEndNow, adminSeedBots, adminStartNow, settleLeague, tick } from "@/lib/server/rounds";
 
+import { fundLeague, finalizeLeague } from "@/lib/server/prize";
+
 // Admin controls for demos. Requires `x-admin-secret: $ADMIN_SECRET`.
 export async function GET(request: Request) {
   if (!hasSecret(request, "ADMIN_SECRET")) return new Response("Unauthorized", { status: 401 });
@@ -22,6 +24,11 @@ export async function POST(request: Request) {
   const { action, leagueId } = (await request.json().catch(() => ({}))) as { action?: string; leagueId?: string };
   try {
     switch (action) {
+      case "fund":
+        return Response.json(await fundLeague(leagueId!));
+      case "finalize":
+        await finalizeLeague(leagueId!);
+        break;
       case "snapshot":
         return Response.json({ source: (await collectPrices()).source });
       case "tick":
@@ -29,10 +36,16 @@ export async function POST(request: Request) {
       case "start":
         await adminStartNow(leagueId!);
         break;
-      case "end":
-        return Response.json(await adminEndNow(leagueId!));
-      case "settle":
-        return Response.json(await settleLeague(leagueId!, Date.now(), { retryReview: true }));
+      case "end": {
+        const result = await adminEndNow(leagueId!);
+        if (process.env.NEXT_PUBLIC_VAULT_PROGRAM_ID && result.status === "completed") await finalizeLeague(leagueId!);
+        return Response.json(result);
+      }
+      case "settle": {
+        const result = await settleLeague(leagueId!, Date.now(), { retryReview: true });
+        if (process.env.NEXT_PUBLIC_VAULT_PROGRAM_ID && result.status === "completed") await finalizeLeague(leagueId!);
+        return Response.json(result);
+      }
       case "cancel":
         await adminCancel(leagueId!);
         break;

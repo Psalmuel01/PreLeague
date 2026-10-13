@@ -4,6 +4,8 @@ import { LEAGUES, LEAGUE_BY_SLUG, opponentsFor, roundAt, type League } from "@/l
 import { SCORING, settle } from "@/lib/settlement";
 import { logJob, q, tx } from "./db";
 import { collectPrices, snapshotsBetween } from "./prices";
+import { settlementReceipt } from "@/lib/solana/receipt";
+import { syncVaults, cancelVault, fundLeague } from "./prize";
 
 export type LeagueStatus = "upcoming" | "live" | "settling" | "completed" | "review_required" | "cancelled";
 
@@ -26,6 +28,10 @@ export type LeagueRow = {
   winner_wallet: string | null;
   review_reason: string | null;
   settled_at: Date | null;
+  settlement_payload: import("@/lib/solana/receipt").SettlementReceipt | null;
+  settlement_hash: string | null;
+  vault_funding_tx: string | null;
+  vault_finalization_tx: string | null;
 };
 
 /** Wait this long after the whistle so the final snapshot lands before settling. */
@@ -122,9 +128,11 @@ export async function settleLeague(id: string, now = Date.now(), opts: { retryRe
         [id, r.wallet, r.rank, r.score, r.picks.map((s) => bySymbol[s]), r.pickReturns],
       );
     }
+    const settledAt = new Date();
+    const receipt = settlementReceipt({ leagueId: id, round: league.round, startsAt: league.starts_at.toISOString(), endsAt: league.ends_at.toISOString(), startPrices: out.startPrices, endPrices: out.endPrices, winningWallet: out.winner, winningScore: out.results.find(r => r.wallet === out.winner)?.score ?? null, settledAt: settledAt.toISOString() });
     await c.query(
-      `update leagues set status = 'completed', start_prices = $2, end_prices = $3, winner_wallet = $4, review_reason = null, settled_at = now() where id = $1`,
-      [id, out.startPrices, out.endPrices, out.winner],
+      `update leagues set status = 'completed', start_prices = $2, end_prices = $3, winner_wallet = $4, review_reason = null, settled_at = $5, settlement_payload = $6, settlement_hash = $7 where id = $1`,
+      [id, out.startPrices, out.endPrices, out.winner, settledAt, receipt.payload, receipt.hash],
     );
     await logJob("settle", true, `${id}: ${out.results.length} entries, winner ${out.winner ?? "none"}`);
     return { status: "completed" as LeagueStatus };
@@ -137,6 +145,7 @@ export async function tick(now = Date.now()) {
     await ensureRounds(now);
     await collectPrices();
     await advance(Date.now());
+    await syncVaults();
     return { ok: true };
   } catch (err) {
     await logJob("tick", false, err instanceof Error ? err.stack ?? err.message : String(err));
@@ -215,6 +224,7 @@ export function seriesDef(series: string): League | undefined {
 export async function adminStartNow(id: string) {
   const league = await getLeague(id);
   if (!league || league.status !== "upcoming") throw new Error("Only an upcoming league can be started");
+  if (process.env.NEXT_PUBLIC_VAULT_PROGRAM_ID) await fundLeague(id);
   const duration = league.ends_at.getTime() - league.starts_at.getTime();
   // Whole seconds, so the kick-off snapshot (stored per second) falls inside the round.
   const now = Math.floor(Date.now() / 1000) * 1000;
@@ -231,6 +241,7 @@ export async function adminEndNow(id: string) {
 }
 
 export async function adminCancel(id: string) {
+  if (process.env.NEXT_PUBLIC_VAULT_PROGRAM_ID) await cancelVault(id);
   await q(`update leagues set status = 'cancelled' where id = $1 and status not in ('completed')`, [id]);
 }
 
